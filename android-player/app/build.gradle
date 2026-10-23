@@ -1,0 +1,32 @@
+apply plugin: 'com.android.application'
+
+android {
+    namespace 'com.prompttotv.player'
+    compileSdk 33
+
+    defaultConfig {
+        applicationId "com.prompttotv.player"
+        minSdk 21
+        targetSdk 33
+        versionCode 1
+        versionName "0.1-demo"
+    }
+
+    buildTypes {
+        debug {
+        }
+    }
+
+}
+
+def ptvAssetsDir = layout.buildDirectory.dir('generated/ptv-assets').get().asFile
+def syncPlayerHtml = tasks.register('syncPlayerHtml', Copy) {
+    from(rootProject.file('../public/player.html'))
+    into(ptvAssetsDir)
+}
+android.sourceSets.main.assets.srcDir(ptvAssetsDir)
+tasks.named('preBuild') { dependsOn(syncPlayerHtml) }
+
+dependencies {
+    implementation 'androidx.appcompat:appcompat:1.6.1'
+}

@@ -1,0 +1,20 @@
+[
+  {
+    "appId": "app_2a315bd4f24c",
+    "title": "Movies Trivia",
+    "kind": "trivia",
+    "featured": true
+  },
+  {
+    "appId": "app_5feb25519340",
+    "title": "General knowledge Trivia",
+    "kind": "trivia",
+    "featured": false
+  },
+  {
+    "appId": "app_633aa1dc54a1",
+    "title": "HIIT Interval Timer",
+    "kind": "timer",
+    "featured": false
+  }
+]

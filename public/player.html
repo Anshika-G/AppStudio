@@ -1,0 +1,260 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>App Studio — TV</title>
+<style>
+  html,body { margin:0; background:#000; color:#fff; font-family:-apple-system,Segoe UI,Helvetica,Arial,sans-serif; height:100%; overflow:hidden; }
+  #frame { position:relative; width:960px; height:540px; margin:24px auto; background:#111; border:3px solid #333; border-radius:8px; overflow:hidden; }
+  #frame iframe { width:1920px; height:1080px; border:0; transform:scale(0.5); transform-origin:0 0; background:#0b0f14; }
+  #chrome { max-width:960px; margin:0 auto; }
+  h2 { font-size:16px; color:#9fb0c0; margin:16px auto 0; max-width:960px; }
+  .hint { max-width:960px; margin:6px auto 20px; color:#6b7a89; font-size:13px; line-height:1.5; }
+  .banner { max-width:960px; margin:10px auto; background:#1b2735; border:1px solid #58a6ff; border-radius:8px; padding:10px 16px; display:none; }
+  .banner.show { display:block; }
+  .banner button { margin-left:10px; }
+  #home { max-width:960px; margin:0 auto; }
+  #home .row { display:flex; gap:12px; flex-wrap:wrap; }
+  #home .tile { background:#1b2735; border:3px solid transparent; border-radius:10px; padding:16px; width:220px; cursor:pointer; }
+  #home .tile.tv-focus { border-color:#58a6ff; }
+  #pairbox { max-width:960px; margin:16px auto; background:#111b24; border-radius:10px; padding:16px; }
+  code { background:#1b2735; padding:2px 6px; border-radius:4px; }
+  button { font-size:14px; padding:8px 14px; border-radius:6px; border:1px solid #333; background:#1b2735; color:#fff; cursor:pointer; }
+  .small { font-size:12px; color:#6b7a89; }
+
+  body.tv h2, body.tv .hint, body.tv #home > .small, body.tv .tv-hide { display:none; }
+  body.tv #chrome { max-width:none; margin:0; padding:32px 48px; }
+  body.tv #pairbox { max-width:none; margin:0 0 18px; padding:0; background:none; font-size:20px; }
+  body.tv #unpaired { margin-top:70px; text-align:center; font-size:26px; line-height:1.4; }
+  body.tv #unpaired .small { font-size:20px; color:#9fb0c0; }
+  body.tv #pair-code { display:inline-block; font-size:64px; letter-spacing:10px; padding:8px 24px; margin:12px 0 4px; }
+  body.tv #paired { font-size:18px; color:#9fb0c0; }
+  body.tv .banner { max-width:none; margin:0 0 18px; font-size:22px; padding:14px 20px; }
+  body.tv .banner button { font-size:18px; }
+  body.tv #home { max-width:none; }
+  body.tv #home h3 { font-size:32px; margin:6px 0 18px; }
+  body.tv #home .row { gap:20px; }
+  body.tv #home .tile { width:250px; padding:20px; font-size:24px; border-width:4px; }
+  body.tv #home .tile .small { font-size:16px; color:#9fb0c0; margin-top:6px; }
+  body.tv #home .tile.tv-focus { background:#223349; box-shadow:0 0 0 6px rgba(88,166,255,.25); }
+  body.tv #frame { position:fixed; top:0; left:0; right:0; bottom:0; width:auto; height:auto; margin:0;
+    border:0; border-radius:0; background:#0b0f14; z-index:10; }
+  body.tv #frame iframe { position:absolute; left:0; top:0; }
+</style>
+</head>
+<body>
+<div id="chrome">
+  <h2>App Studio — TV (simulator)</h2>
+  <div class="hint">
+    This page stands in for the Fire TV Player app's WebView. It uses arrow keys / Enter / Escape as the D-pad / Select / Back,
+    exactly matching the key codes in the design doc's remote table (37/38/39/40, 13, 27). Click inside the frame first so it has keyboard focus.
+  </div>
+
+  <div id="pairbox">
+    <div id="unpaired">
+      <b>Pair your phone.</b> Open App Studio on your phone and enter this code.
+      <div style="margin-top:10px">Pairing code: <code id="pair-code">...</code> &nbsp; <span class="small">(valid 10 minutes)</span></div>
+      <div class="small" style="margin-top:6px">Waiting for approval…</div>
+    </div>
+    <div id="paired" style="display:none">
+      Paired as <b id="tv-name">Living Room TV</b><span class="tv-hide"> (<code id="tv-id"></code>). <button onclick="location.reload()">Unpair / reset</button></span>
+    </div>
+  </div>
+
+  <div class="banner" id="banner">
+    <span id="banner-text"></span>
+    <button onclick="openDelivered(bannerAppId)">OK — open now</button>
+  </div>
+
+  <div id="home" style="display:none">
+    <h3>My Apps</h3>
+    <div class="row" id="app-tiles"></div>
+    <p class="small">Click a tile, or use arrow keys + Enter (this row is D-pad focusable too).</p>
+  </div>
+</div>
+
+<div id="frame" style="display:none">
+  <iframe id="appframe" sandbox="allow-scripts" src="about:blank"></iframe>
+</div>
+
+<script>
+  const API = '';
+  const TV = new URLSearchParams(location.search).has('tv');
+  if (TV) document.body.classList.add('tv');
+  if (new URLSearchParams(location.search).has('reset')) {
+    localStorage.removeItem('ptv_tvId');
+    localStorage.removeItem('ptv_offline_state');
+  }
+  let tvId = localStorage.getItem('ptv_tvId');
+  let pairCode = null;
+  let bannerAppId = null;
+  let lastEventTs = 0;
+  let homeFocusIdx = -1;
+
+  async function startPairing(){
+    const r = await fetch(API + '/v1/device/code', { method:'POST' });
+    const data = await r.json();
+    pairCode = data.code; tvId = data.tvId;
+    document.getElementById('pair-code').textContent = pairCode;
+    pollApproval();
+  }
+  async function pollApproval(){
+    const r = await fetch(API + '/v1/device/poll?code=' + pairCode);
+    const data = await r.json();
+    if (data.approved) {
+      localStorage.setItem('ptv_tvId', tvId);
+      showPaired();
+      startEventLoop();
+      return;
+    }
+    setTimeout(pollApproval, 1500);
+  }
+  function showPaired(){
+    document.getElementById('unpaired').style.display = 'none';
+    document.getElementById('paired').style.display = 'block';
+    document.getElementById('tv-id').textContent = tvId;
+    document.getElementById('home').style.display = 'block';
+    refreshApps();
+  }
+  async function refreshApps(focusAppId){
+    const r = await fetch(API + '/v1/tv/' + tvId + '/apps');
+    const data = await r.json();
+    const box = document.getElementById('app-tiles');
+    box.innerHTML = '';
+    data.apps.forEach(a => {
+      const d = document.createElement('div');
+      d.className = 'tile'; d.setAttribute('data-focus','');
+      const b = document.createElement('b'); b.textContent = a.title;
+      const small = document.createElement('div'); small.className = 'small';
+      small.textContent = 'delivered ' + new Date(a.deliveredAt).toLocaleTimeString();
+      d.append(b, small);
+      d.onclick = () => openDelivered(a.appId);
+      box.appendChild(d);
+    });
+    const tiles = Array.from(box.querySelectorAll('.tile'));
+    const delivered = focusAppId ? data.apps.findIndex(a => a.appId === focusAppId) : -1;
+    if (delivered >= 0) homeFocusIdx = delivered;
+    homeFocusIdx = tiles.length ? Math.min(Math.max(homeFocusIdx, 0), tiles.length - 1) : -1;
+    setHomeFocus(tiles);
+  }
+  async function startEventLoop(){
+    async function poll(){
+      try {
+        const r = await fetch(API + '/v1/tv/' + tvId + '/events?since=' + lastEventTs);
+        const data = await r.json();
+        lastEventTs = data.now;
+        data.events.forEach(e => {
+          if (e.type === 'delivery') {
+            bannerAppId = e.appId;
+            document.getElementById('banner-text').textContent = '"' + e.title + '" is ready';
+            document.getElementById('banner').classList.add('show');
+            refreshApps(e.appId);
+          }
+        });
+      } catch (e) {}
+      setTimeout(poll, 1200);
+    }
+    poll();
+  }
+  async function openDelivered(appId){
+    document.getElementById('banner').classList.remove('show');
+    const r = await fetch(API + '/v1/tv/' + tvId + '/launch', {
+      method:'POST', headers:{'Content-Type':'application/json'}, body: JSON.stringify({ appId })
+    });
+    const data = await r.json();
+    if (data.url) {
+      document.getElementById('home').style.display = 'none';
+      document.getElementById('frame').style.display = 'block';
+      fitFrame();
+      appView = null; window.__ptvAppView = null;
+      document.getElementById('appframe').src = data.url;
+      document.getElementById('appframe').focus();
+    } else {
+      alert('Could not launch: ' + (data.error || 'unknown error'));
+    }
+  }
+
+  function fitFrame(){
+    if (!TV) return;
+    const f = document.getElementById('appframe');
+    const s = Math.min(window.innerWidth / 1920, window.innerHeight / 1080);
+    f.style.transform = 'scale(' + s + ')';
+    f.style.left = Math.round((window.innerWidth - 1920 * s) / 2) + 'px';
+    f.style.top = Math.round((window.innerHeight - 1080 * s) / 2) + 'px';
+  }
+  window.addEventListener('resize', fitFrame);
+
+  window.addEventListener('keydown', (e) => {
+    if (document.getElementById('frame').style.display === 'block') {
+      if ([13, 27, 37, 38, 39, 40].includes(e.keyCode)) {
+        e.preventDefault();
+        document.getElementById('appframe').contentWindow.postMessage({ type: 'key', keyCode: e.keyCode }, '*');
+      }
+      return;
+    }
+    const arrow = /^Arrow(Left|Right|Up|Down)$/.test(e.key);
+    if (!arrow && e.key !== 'Enter') return;
+    const ae = document.activeElement;
+    if (e.key === 'Enter' && ae && ae !== document.body && ae.offsetParent !== null &&
+        ae.matches('button, a[href], input, select, textarea')) return;
+    e.preventDefault();
+    const tiles = Array.from(document.querySelectorAll('#app-tiles .tile'));
+    if (!tiles.length) return;
+    if (e.key === 'ArrowRight') { homeFocusIdx = Math.min(tiles.length-1, homeFocusIdx+1); setHomeFocus(tiles); }
+    if (e.key === 'ArrowLeft') { homeFocusIdx = Math.max(0, homeFocusIdx-1); setHomeFocus(tiles); }
+    if (e.key === 'Enter' && homeFocusIdx >= 0) tiles[homeFocusIdx].click();
+  });
+  function setHomeFocus(tiles){
+    tiles.forEach(t => t.classList.remove('tv-focus'));
+    if (homeFocusIdx >= 0) tiles[homeFocusIdx].classList.add('tv-focus');
+  }
+
+  let appView = null;
+  window.addEventListener('message', (ev) => {
+    const msg = ev.data;
+    if (!msg || typeof msg !== 'object') return;
+    if (ev.source !== document.getElementById('appframe').contentWindow) return;
+    if (msg.type === 'view') { appView = msg; window.__ptvAppView = msg; return; }
+    if (msg.type === 'exit') {
+      appView = null; window.__ptvAppView = null;
+      document.getElementById('frame').style.display = 'none';
+      document.getElementById('appframe').src = 'about:blank';
+      document.getElementById('home').style.display = 'block';
+      refreshApps();
+    }
+    if (msg.type === 'error') {
+      console.warn('[app error]', msg.message, msg.stack);
+    }
+  });
+
+  if (new URLSearchParams(location.search).has('debug')) {
+    let lastState = '';
+    setInterval(() => {
+      if (!window.ReactNativeWebView) return;
+      let s;
+      try {
+        const frameOpen = document.getElementById('frame').style.display === 'block';
+        const v = frameOpen && appView ? appView : {};
+        const hl = document.querySelector('#app-tiles .tile.tv-focus b');
+        s = JSON.stringify({
+          code: (document.getElementById('pair-code') || {}).textContent || '',
+          paired: document.getElementById('paired').style.display === 'block',
+          banner: document.getElementById('banner').classList.contains('show') ? document.getElementById('banner-text').textContent : '',
+          tiles: Array.from(document.querySelectorAll('#app-tiles .tile b')).map(b => b.textContent),
+          highlighted: hl ? hl.textContent : null,
+          appOpen: frameOpen,
+          appTitle: v.appTitle || null,
+          screen: v.screen || null,
+          focused: v.focused || null,
+          paused: !!v.paused,
+          reveal: v.reveal || null
+        });
+      } catch (e) { s = JSON.stringify({ error: String(e) }); }
+      if (s !== lastState) { lastState = s; window.ReactNativeWebView.postMessage('PTV_STATE ' + s); }
+    }, 150);
+  }
+
+  if (tvId) { showPaired(); startEventLoop(); } else { startPairing(); }
+</script>
+</body>
+</html>

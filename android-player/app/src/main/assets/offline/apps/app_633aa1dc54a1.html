@@ -1,0 +1,233 @@
+<!DOCTYPE html>
+<html><head><meta charset="utf-8"><title>HIIT Interval Timer</title>
+<style>
+  * { box-sizing: border-box; }
+  html, body { margin:0; padding:0; width:1920px; height:1080px; background:#0b0f14; color:#fff;
+    font-family:-apple-system,Segoe UI,Helvetica,Arial,sans-serif; overflow:hidden; }
+  .stage { width:1920px; height:1080px; padding:54px 96px; position:relative; }
+  .screen { display:none; width:100%; height:100%; flex-direction:column; }
+  .screen.active { display:flex; }
+  h1.app-title { font-size:64px; margin:0 0 10px; }
+  p.app-sub { font-size:28px; color:#9fb0c0; margin:0 0 40px; }
+  .row { display:flex; gap:28px; flex-wrap:wrap; }
+  button { font-size:34px; padding:26px 36px; border-radius:16px; border:4px solid transparent;
+    background:#1b2735; color:#fff; cursor:pointer; }
+  button.tv-focus { border-color:#58a6ff; background:#223349; box-shadow:0 0 0 6px rgba(88,166,255,.25); }
+  .big { font-size:120px; font-weight:700; text-align:center; }
+  .huge { font-size:220px; font-weight:800; text-align:center; }
+  .center { display:flex; flex-direction:column; align-items:center; justify-content:center; height:100%; }
+  .scoreboard { position:absolute; top:54px; right:96px; font-size:30px; color:#9fb0c0; }
+  .pause-overlay { position:absolute; inset:0; background:rgba(11,15,20,.94); display:none;
+    flex-direction:column; align-items:center; justify-content:center; z-index:50; }
+  .pause-overlay.show { display:flex; }
+  .choice { font-size:38px; text-align:left; width:1200px; }
+  .timerbar { height:28px; background:#1b2735; border-radius:14px; overflow:hidden; margin:30px 0; width:1200px; }
+  .timerbar > div { height:100%; background:#58a6ff; width:100%; }
+</style></head>
+<body>
+<div class="stage">
+  <section class="screen active" id="s-title">
+    <div class="center">
+      <h1 class="app-title">HIIT Interval Timer</h1>
+      <p class="app-sub">An interval timer: 5 rounds, 30s work / 10s rest. Pause and resume with the remote.</p>
+      <button data-focus onclick="startWorkout()">Start</button>
+    </div>
+  </section>
+  <section class="screen" id="s-run">
+    <div class="center">
+      <div class="app-sub" id="phase-label" style="font-size:40px"></div>
+      <div class="huge" id="clock">00</div>
+      <div class="app-sub" id="round-label"></div>
+    </div>
+  </section>
+  <section class="screen" id="s-done">
+    <div class="center">
+      <h1 class="app-title" id="done-title">Workout complete</h1>
+      <button data-focus onclick="goTo('s-title')">Done</button>
+    </div>
+  </section>
+  <div class="pause-overlay" id="pause">
+    <div class="huge" style="font-size:72px">Paused</div>
+    <div class="row" style="margin-top:30px">
+      <button data-focus onclick="resumeTimer()">Resume</button>
+      <button onclick="tv.exit()">Quit</button>
+    </div>
+  </div>
+</div>
+
+<script>
+// --- App Studio runtime SDK (platform-provided, see design doc 7.3) ---
+(function(){
+  var backHandlers = [];
+  var exitArmed = false, exitTimer = null;
+  var focusables = [];
+  var currentFocusIndex = -1;
+  var hostKind = (window.top !== window.self) ? 'preview' : 'standalone';
+
+  function refreshFocusables(){
+    var overlay = document.querySelector('.pause-overlay.show, [data-modal].show');
+    var root = overlay || document;
+    focusables = Array.prototype.slice.call(root.querySelectorAll('[data-focus],button,a[href]'))
+      .filter(function(el){ return el.offsetParent !== null && !el.disabled; });
+  }
+  function setFocus(el){
+    Array.prototype.slice.call(document.querySelectorAll('.tv-focus')).forEach(function(f){ f.classList.remove('tv-focus'); });
+    if (!el) return;
+    el.classList.add('tv-focus');
+    currentFocusIndex = focusables.indexOf(el);
+    el.scrollIntoView({block:'nearest', inline:'nearest'});
+  }
+  function centerOf(el){
+    var r = el.getBoundingClientRect();
+    return {x: r.left + r.width/2, y: r.top + r.height/2, r: r};
+  }
+  function moveFocus(dir){
+    refreshFocusables();
+    if (!focusables.length) return;
+    if (currentFocusIndex === -1) { setFocus(focusables[0]); return; }
+    var cur = centerOf(focusables[currentFocusIndex]);
+    var best = null, bestScore = Infinity;
+    focusables.forEach(function(f, i){
+      if (i === currentFocusIndex) return;
+      var c = centerOf(f);
+      var dx = c.x - cur.x, dy = c.y - cur.y;
+      var ok = false, primary = 0, cross = 0;
+      if (dir === 'left')  { ok = dx < -1;  primary = -dx; cross = Math.abs(dy); }
+      if (dir === 'right') { ok = dx > 1;   primary = dx;  cross = Math.abs(dy); }
+      if (dir === 'up')    { ok = dy < -1;  primary = -dy; cross = Math.abs(dx); }
+      if (dir === 'down')  { ok = dy > 1;   primary = dy;  cross = Math.abs(dx); }
+      if (!ok) return;
+      var score = primary + cross * 2.2;
+      if (score < bestScore) { bestScore = score; best = f; }
+    });
+    if (best) setFocus(best);
+  }
+
+  function sendBridge(msg){
+    msg.v = 1;
+    if (window.top !== window.self) {
+      window.parent.postMessage(msg, '*');
+    } else if (window.ReactNativeWebView) {
+      window.ReactNativeWebView.postMessage(JSON.stringify(msg));
+    }
+  }
+
+  var tv = {
+    host: hostKind,
+    ready: function(){ sendBridge({type:'ready'}); refreshFocusables(); if (focusables.length) setFocus(focusables[0]); },
+    on: function(evt, fn){ if (evt === 'back') backHandlers.push(fn); if (evt === 'key') tv._keyFn = fn; },
+    exit: function(){ sendBridge({type:'exit'}); },
+    refocus: function(){ refreshFocusables(); if (!focusables.length) return; if (!focusables.includes(document.querySelector('.tv-focus'))) setFocus(focusables[0]); },
+    storage: {
+      _mem: {},
+      get: function(k){ return tv.storage._mem[k]; },
+      set: function(k, v){ tv.storage._mem[k] = v; sendBridge({type:'storage.set', key:k, value:v}); }
+    }
+  };
+  window.tv = tv;
+
+  function handleBack(){
+    for (var i = backHandlers.length - 1; i >= 0; i--) {
+      if (backHandlers[i]() === true) return;
+    }
+    if (exitArmed) { sendBridge({type:'exit'}); return; }
+    exitArmed = true;
+    var n = document.createElement('div');
+    n.id = 'tv-back-toast'; n.textContent = 'Press Back again to leave';
+    n.style.cssText = 'position:fixed;left:50%;bottom:60px;transform:translateX(-50%);background:#111;color:#fff;padding:14px 28px;border-radius:10px;font-size:28px;z-index:9999;font-family:sans-serif';
+    document.body.appendChild(n);
+    clearTimeout(exitTimer);
+    exitTimer = setTimeout(function(){ exitArmed = false; var el = document.getElementById('tv-back-toast'); if (el) el.remove(); }, 2500);
+  }
+
+  var KEY = { 37:'left', 38:'up', 39:'right', 40:'down', 13:'select', 27:'back', 4:'back' };
+  function handleKey(code){
+    var k = KEY[code];
+    if (k === 'left' || k === 'right' || k === 'up' || k === 'down') {
+      moveFocus(k);
+      if (tv._keyFn) tv._keyFn({key:k});
+      return true;
+    }
+    if (k === 'select') {
+      var f = focusables[currentFocusIndex];
+      if (f) f.click();
+      if (tv._keyFn) tv._keyFn({key:'select'});
+      return true;
+    }
+    if (k === 'back') { handleBack(); return true; }
+    return false;
+  }
+  window.addEventListener('keydown', function(e){
+    if (handleKey(e.keyCode)) e.preventDefault();
+  });
+  window.addEventListener('message', function(e){
+    var m = e.data;
+    if (e.source !== window.parent || window.parent === window) return;
+    if (m && m.type === 'key' && typeof m.keyCode === 'number') handleKey(m.keyCode);
+  });
+
+  setInterval(function(){ sendBridge({type:'heartbeat'}); }, 2000);
+  window.addEventListener('error', function(e){
+    sendBridge({type:'error', message: String(e.message), stack: e.error && e.error.stack});
+  });
+
+  var lastView = '';
+  setInterval(function(){
+    var s = document.querySelector('.screen.active'), f = document.querySelector('.tv-focus');
+    var t = document.querySelector('h1.app-title'), p = document.getElementById('pause'), r = document.getElementById('reveal-text');
+    var view = { screen: s ? s.id : null, focused: f ? f.textContent.trim() : null, appTitle: t ? t.textContent : null,
+      paused: !!(p && p.classList.contains('show')), reveal: r ? r.textContent : null };
+    var key = JSON.stringify(view);
+    if (key !== lastView) { lastView = key; view.type = 'view'; sendBridge(view); }
+  }, 150);
+
+  document.addEventListener('DOMContentLoaded', function(){
+    refreshFocusables();
+  });
+})();
+</script>
+<script>
+  var ROUNDS = 5, WORK = 30, REST = 10;
+  var YOGA = false, POSES = ["Mountain Pose","Tree Pose","Warrior II","Downward Dog","Child's Pose","Cat-Cow","Cobra","Triangle Pose","Bridge Pose","Seated Twist"];
+  if (YOGA) document.getElementById('done-title').textContent = 'Namaste. Session complete';
+  var round = 0, phase = 'work', remaining = WORK, timer = null, paused = false;
+
+  function goTo(id){
+    document.querySelectorAll('.screen').forEach(function(s){ s.classList.remove('active'); });
+    document.getElementById(id).classList.add('active');
+    if (window.tv) tv.ready();
+  }
+  function render(){
+    document.getElementById('phase-label').textContent = YOGA
+      ? (phase === 'work' ? POSES[round % POSES.length] : 'Switch to ' + POSES[(round + 1) % POSES.length])
+      : (phase === 'work' ? 'WORK' : 'REST');
+    document.getElementById('clock').textContent = String(remaining).padStart(2,'0');
+    document.getElementById('round-label').textContent = (YOGA ? 'Pose ' : 'Round ') + (round+1) + ' of ' + ROUNDS;
+  }
+  function tick(){
+    if (paused) return;
+    remaining--;
+    if (remaining < 0) {
+      if (phase === 'work') { phase = 'rest'; remaining = REST; }
+      else { round++; phase = 'work'; remaining = WORK; }
+      if (round >= ROUNDS) { clearInterval(timer); goTo('s-done'); return; }
+    }
+    render();
+  }
+  function startWorkout(){
+    round = 0; phase = 'work'; remaining = WORK;
+    goTo('s-run'); render();
+    clearInterval(timer); timer = setInterval(tick, 1000);
+  }
+  function pauseTimer(){ paused = true; document.getElementById('pause').classList.add('show'); tv.refocus(); }
+  function resumeTimer(){ paused = false; document.getElementById('pause').classList.remove('show'); tv.refocus(); }
+
+  window.tv.on('back', function(){
+    if (document.getElementById('s-title').classList.contains('active')) return false;
+    if (document.getElementById('pause').classList.contains('show')) { resumeTimer(); return true; }
+    pauseTimer(); return true;
+  });
+
+  document.addEventListener('DOMContentLoaded', function(){ tv.ready(); });
+</script>
+</body></html>

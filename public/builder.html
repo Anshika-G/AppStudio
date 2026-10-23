@@ -1,0 +1,194 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>App Studio — Build your own app</title>
+<style>
+  html,body { margin:0; font-family:-apple-system,Segoe UI,Helvetica,Arial,sans-serif; background:#f5f7f9; color:#1b1f23; }
+  .wrap { max-width:760px; margin:0 auto; padding:24px; }
+  header h1 { font-size:24px; margin:0; }
+  header p { margin:4px 0 0; color:#5a6470; font-size:14px; }
+  h3 { margin:0 0 8px; font-size:17px; }
+  textarea { width:100%; height:70px; font-size:15px; padding:10px; border-radius:8px; border:1px solid #d9dee3; box-sizing:border-box; }
+  input { font-size:16px; padding:8px; width:140px; text-transform:uppercase; border-radius:8px; border:1px solid #d9dee3; }
+  button { font-size:14px; padding:10px 18px; border-radius:8px; border:1px solid #0b5cad; background:#0b5cad; color:#fff; cursor:pointer; margin-top:8px; }
+  button.secondary { background:#fff; color:#0b5cad; }
+  button:disabled { opacity:.5; cursor:default; }
+  .examples button { background:#fff; color:#1b1f23; border-color:#d9dee3; font-size:13px; margin:4px 4px 0 0; }
+  pre { background:#f8fafb; border:1px solid #d9dee3; border-radius:8px; padding:12px; font-size:12px; overflow:auto; max-height:220px; }
+  .card { background:#fff; border:1px solid #d9dee3; border-radius:12px; padding:16px; margin-top:16px; }
+  .small { font-size:12px; color:#5a6470; }
+  .ok { color:#1a7f37; } .bad { color:#b42318; }
+  table { width:100%; border-collapse:collapse; font-size:13px; }
+  td,th { border-bottom:1px solid #eee; padding:4px 6px; text-align:left; }
+  .scaled { width:100%; aspect-ratio:16 / 9; overflow:hidden; position:relative; background:#000; border-radius:6px; }
+  .scaled iframe { width:1920px; height:1080px; border:0; transform-origin:0 0; position:absolute; left:0; top:0; }
+  select { font-size:14px; padding:6px; max-width:100%; }
+  .pill { display:inline-block; padding:3px 10px; border-radius:999px; font-size:12px; margin-right:6px; }
+  .pill.ready { background:#e6f4ea; color:#1a7f37; }
+  .pill.failed { background:#fdeeed; color:#b42318; }
+  #approveStatus.paired { color:#1a7f37; font-weight:600; }
+  @media (max-width: 600px) {
+    .wrap { padding:14px; }
+    textarea { font-size:16px; height:96px; }
+    .card { padding:12px; margin-top:12px; }
+    table { font-size:12px; }
+    td,th { padding:3px 4px; }
+    pre { font-size:11px; max-height:170px; }
+  }
+</style>
+</head>
+<body>
+<div class="wrap">
+  <header>
+    <h1>App Studio</h1>
+    <p>Build your own app for your TV. Describe it, check it, play it.</p>
+  </header>
+
+  <div class="card" id="pairCard">
+    <h3>Pair your TV</h3>
+    <p class="small">Enter the 6-character code your TV shows.</p>
+    <input id="approveCode" placeholder="CODE" autocomplete="off">
+    <button onclick="approve()">Pair</button>
+    <p id="approveStatus"></p>
+  </div>
+
+  <div class="card" id="describeCard">
+    <h3>Describe your app</h3>
+    <textarea id="desc" placeholder="e.g. A learning quiz for my kids about animals, 2 teams, 45 seconds per question"></textarea>
+    <div class="examples">
+      <button onclick="setDesc('A learning quiz for my kids about animals, 2 teams, 2 rounds of 5 questions, 45 seconds per question')">Kids' animal quiz</button>
+      <button onclick="setDesc('A yoga session for the living room: 6 poses, 30 seconds each, with a short rest between poses')">Yoga session</button>
+      <button onclick="setDesc('A movie trivia game for family game night: 2 teams, 2 rounds of 5 questions about movies, 20 seconds per question')">Family movie trivia</button>
+    </div>
+    <button onclick="plan()">1. Plan it</button>
+    <p class="small">Each build shows whether templates or an AI model wrote it.</p>
+  </div>
+
+  <div class="card" id="planCard" style="display:none">
+    <h3>Plan</h3>
+    <pre id="planText"></pre>
+    <button onclick="build()">2. Build it</button>
+  </div>
+
+  <div class="card" id="buildCard" style="display:none">
+    <h3>Build result <span id="buildPill"></span></h3>
+    <table id="checkTable"></table>
+    <div id="rebuildBox" style="margin-top:10px; display:none">
+      <textarea id="rebuildDesc" style="height:40px"></textarea>
+      <button class="secondary" onclick="rebuild()">Rebuild with a changed description</button>
+    </div>
+  </div>
+
+  <div class="card" id="previewCard" style="display:none">
+    <h3>Preview: exactly what the TV will run</h3>
+    <div class="scaled"><iframe id="previewFrame" sandbox="allow-scripts" src="about:blank"></iframe></div>
+    <div>
+      <select id="tvSelect"></select>
+      <button onclick="sendToTv()">3. Send to TV</button>
+    </div>
+    <p id="sendStatus"></p>
+  </div>
+</div>
+
+<script>
+  let appId = null, currentPlan = null;
+
+  function setDesc(t){ document.getElementById('desc').value = t; }
+
+  async function plan(){
+    const description = document.getElementById('desc').value.trim();
+    if (!description) return alert('type a description first');
+    const r = await fetch('/v1/plans', { method:'POST', headers:{'Content-Type':'application/json'}, body: JSON.stringify({ description }) });
+    const data = await r.json();
+    currentPlan = data.plan;
+    document.getElementById('planText').textContent = JSON.stringify(data.plan, null, 2);
+    document.getElementById('planCard').style.display = 'block';
+  }
+
+  async function build(){
+    const description = document.getElementById('desc').value.trim();
+    const r = await fetch('/v1/apps', { method:'POST', headers:{'Content-Type':'application/json'}, body: JSON.stringify({ description, plan: currentPlan }) });
+    const data = await r.json();
+    renderBuildResult(data);
+    if (r.ok) {
+      appId = data.appId;
+      await loadPreview();
+      await refreshTvs();
+      document.getElementById('rebuildBox').style.display = 'block';
+      document.getElementById('rebuildDesc').value = description;
+    }
+  }
+
+  async function rebuild(){
+    const description = document.getElementById('rebuildDesc').value.trim();
+    const r = await fetch('/v1/apps/' + appId + '/rebuild', { method:'POST', headers:{'Content-Type':'application/json'}, body: JSON.stringify({ description }) });
+    const data = await r.json();
+    renderBuildResult(data);
+    if (r.ok) await loadPreview();
+  }
+
+  function renderBuildResult(data){
+    document.getElementById('buildCard').style.display = 'block';
+    const pill = document.getElementById('buildPill');
+    const passed = data.report && data.report.passed;
+    pill.innerHTML = '<span class="pill ' + (passed ? 'ready' : 'failed') + '">' + (passed ? 'READY' : 'FAILED') + '</span>';
+    if (data.writer) {
+      const w = document.createElement('span');
+      w.style.cssText = 'font-size:12px;color:#5a6470;font-weight:400';
+      w.textContent = data.writer === 'templates' ? 'written from templates' : ('written by ' + data.writer.replace(/^model:/, '') + (data.attempts > 1 ? ' (repaired once)' : ''));
+      pill.appendChild(w);
+    }
+    const tbl = document.getElementById('checkTable');
+    tbl.innerHTML = '<tr><th>Check</th><th>Result</th><th>Detail</th></tr>' +
+      (data.report ? data.report.checks.map(c =>
+        '<tr><td>' + esc(c.name) + '</td><td class="' + (c.ok?'ok':'bad') + '">' + (c.ok?'pass':'FAIL') + '</td><td>' + esc(c.detail) + '</td></tr>'
+      ).join('') : '<tr><td colspan=3>' + esc(data.error||'error') + '</td></tr>');
+  }
+  function esc(s){ return String(s == null ? '' : s).replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'})[c]); }
+
+  async function loadPreview(){
+    const r = await fetch('/v1/apps/' + appId + '/preview-link', { method:'POST' });
+    const data = await r.json();
+    if (data.url) {
+      document.getElementById('previewCard').style.display = 'block';
+      document.getElementById('previewFrame').src = data.url;
+      fitPreview();
+    }
+  }
+
+  function fitPreview(){
+    const box = document.querySelector('.scaled');
+    if (!box || !box.clientWidth) return;
+    document.getElementById('previewFrame').style.transform = 'scale(' + (box.clientWidth / 1920) + ')';
+  }
+  window.addEventListener('resize', fitPreview);
+
+  async function refreshTvs(){
+    const r = await fetch('/v1/tvs');
+    const data = await r.json();
+    const sel = document.getElementById('tvSelect');
+    sel.innerHTML = data.tvs.map(t => '<option value="' + esc(t.id) + '">' + esc(t.name) + '</option>').join('');
+  }
+
+  async function sendToTv(){
+    const tvId = document.getElementById('tvSelect').value;
+    if (!tvId) { document.getElementById('sendStatus').textContent = 'No paired TV yet. Pair one above first.'; return; }
+    const r = await fetch('/v1/send', { method:'POST', headers:{'Content-Type':'application/json'}, body: JSON.stringify({ appId, tvId }) });
+    const data = await r.json();
+    document.getElementById('sendStatus').textContent = r.ok ? 'Sent. It\'s in My Apps on your TV, ready whenever you are.' : ('Error: ' + data.error);
+  }
+
+  async function approve(){
+    const code = document.getElementById('approveCode').value.trim().toUpperCase();
+    const r = await fetch('/v1/device/approve', { method:'POST', headers:{'Content-Type':'application/json'}, body: JSON.stringify({ code }) });
+    const data = await r.json();
+    const st = document.getElementById('approveStatus');
+    st.textContent = r.ok ? 'Paired. Your TV is ready.' : ('Error: ' + data.error);
+    st.className = r.ok ? 'paired' : '';
+    if (r.ok) refreshTvs();
+  }
+</script>
+</body>
+</html>

@@ -1,0 +1,281 @@
+<!DOCTYPE html>
+<html><head><meta charset="utf-8"><title>Movies Trivia</title>
+<style>
+  * { box-sizing: border-box; }
+  html, body { margin:0; padding:0; width:1920px; height:1080px; background:#0b0f14; color:#fff;
+    font-family:-apple-system,Segoe UI,Helvetica,Arial,sans-serif; overflow:hidden; }
+  .stage { width:1920px; height:1080px; padding:54px 96px; position:relative; }
+  .screen { display:none; width:100%; height:100%; flex-direction:column; }
+  .screen.active { display:flex; }
+  h1.app-title { font-size:64px; margin:0 0 10px; }
+  p.app-sub { font-size:28px; color:#9fb0c0; margin:0 0 40px; }
+  .row { display:flex; gap:28px; flex-wrap:wrap; }
+  button { font-size:34px; padding:26px 36px; border-radius:16px; border:4px solid transparent;
+    background:#1b2735; color:#fff; cursor:pointer; }
+  button.tv-focus { border-color:#58a6ff; background:#223349; box-shadow:0 0 0 6px rgba(88,166,255,.25); }
+  .big { font-size:120px; font-weight:700; text-align:center; }
+  .huge { font-size:220px; font-weight:800; text-align:center; }
+  .center { display:flex; flex-direction:column; align-items:center; justify-content:center; height:100%; }
+  .scoreboard { position:absolute; top:54px; right:96px; font-size:30px; color:#9fb0c0; }
+  .pause-overlay { position:absolute; inset:0; background:rgba(11,15,20,.94); display:none;
+    flex-direction:column; align-items:center; justify-content:center; z-index:50; }
+  .pause-overlay.show { display:flex; }
+  .choice { font-size:38px; text-align:left; width:1200px; }
+  .timerbar { height:28px; background:#1b2735; border-radius:14px; overflow:hidden; margin:30px 0; width:1200px; }
+  .timerbar > div { height:100%; background:#58a6ff; width:100%; }
+</style></head>
+<body>
+<div class="stage">
+  <div class="scoreboard" id="scoreboard"></div>
+
+  <section class="screen active" id="s-title">
+    <div class="center">
+      <h1 class="app-title">Movies Trivia</h1>
+      <p class="app-sub">2 teams answer 15 movies questions across 3 rounds of 5, 20s per question. Pick an answer with the D-pad and press OK.</p>
+      <button data-focus onclick="renderQuestion()">Start Game</button>
+    </div>
+  </section>
+
+  <section class="screen" id="s-question">
+    <h1 class="app-title" id="q-round-label">Round 1</h1>
+    <div class="timerbar"><div id="q-timerfill"></div></div>
+    <p class="app-sub" id="q-text" style="font-size:40px;color:#fff"></p>
+    <div class="row" id="q-choices"></div>
+  </section>
+
+  <section class="screen" id="s-reveal">
+    <div class="center">
+      <div class="big" id="reveal-text"></div>
+      <button data-focus onclick="nextQuestion()">Next</button>
+    </div>
+  </section>
+
+  <section class="screen" id="s-final">
+    <div class="center">
+      <h1 class="app-title">Final Scores</h1>
+      <div class="big" id="final-text"></div>
+      <button data-focus onclick="restart()">Play Again</button>
+    </div>
+  </section>
+
+  <div class="pause-overlay" id="pause">
+    <div class="huge" style="font-size:72px">Paused</div>
+    <div class="row" style="margin-top:30px">
+      <button data-focus onclick="resumeGame()">Resume</button>
+      <button onclick="tv.exit()">Quit</button>
+    </div>
+  </div>
+</div>
+
+<script>
+// --- App Studio runtime SDK (platform-provided, see design doc 7.3) ---
+(function(){
+  var backHandlers = [];
+  var exitArmed = false, exitTimer = null;
+  var focusables = [];
+  var currentFocusIndex = -1;
+  var hostKind = (window.top !== window.self) ? 'preview' : 'standalone';
+
+  function refreshFocusables(){
+    var overlay = document.querySelector('.pause-overlay.show, [data-modal].show');
+    var root = overlay || document;
+    focusables = Array.prototype.slice.call(root.querySelectorAll('[data-focus],button,a[href]'))
+      .filter(function(el){ return el.offsetParent !== null && !el.disabled; });
+  }
+  function setFocus(el){
+    Array.prototype.slice.call(document.querySelectorAll('.tv-focus')).forEach(function(f){ f.classList.remove('tv-focus'); });
+    if (!el) return;
+    el.classList.add('tv-focus');
+    currentFocusIndex = focusables.indexOf(el);
+    el.scrollIntoView({block:'nearest', inline:'nearest'});
+  }
+  function centerOf(el){
+    var r = el.getBoundingClientRect();
+    return {x: r.left + r.width/2, y: r.top + r.height/2, r: r};
+  }
+  function moveFocus(dir){
+    refreshFocusables();
+    if (!focusables.length) return;
+    if (currentFocusIndex === -1) { setFocus(focusables[0]); return; }
+    var cur = centerOf(focusables[currentFocusIndex]);
+    var best = null, bestScore = Infinity;
+    focusables.forEach(function(f, i){
+      if (i === currentFocusIndex) return;
+      var c = centerOf(f);
+      var dx = c.x - cur.x, dy = c.y - cur.y;
+      var ok = false, primary = 0, cross = 0;
+      if (dir === 'left')  { ok = dx < -1;  primary = -dx; cross = Math.abs(dy); }
+      if (dir === 'right') { ok = dx > 1;   primary = dx;  cross = Math.abs(dy); }
+      if (dir === 'up')    { ok = dy < -1;  primary = -dy; cross = Math.abs(dx); }
+      if (dir === 'down')  { ok = dy > 1;   primary = dy;  cross = Math.abs(dx); }
+      if (!ok) return;
+      var score = primary + cross * 2.2;
+      if (score < bestScore) { bestScore = score; best = f; }
+    });
+    if (best) setFocus(best);
+  }
+
+  function sendBridge(msg){
+    msg.v = 1;
+    if (window.top !== window.self) {
+      window.parent.postMessage(msg, '*');
+    } else if (window.ReactNativeWebView) {
+      window.ReactNativeWebView.postMessage(JSON.stringify(msg));
+    }
+  }
+
+  var tv = {
+    host: hostKind,
+    ready: function(){ sendBridge({type:'ready'}); refreshFocusables(); if (focusables.length) setFocus(focusables[0]); },
+    on: function(evt, fn){ if (evt === 'back') backHandlers.push(fn); if (evt === 'key') tv._keyFn = fn; },
+    exit: function(){ sendBridge({type:'exit'}); },
+    refocus: function(){ refreshFocusables(); if (!focusables.length) return; if (!focusables.includes(document.querySelector('.tv-focus'))) setFocus(focusables[0]); },
+    storage: {
+      _mem: {},
+      get: function(k){ return tv.storage._mem[k]; },
+      set: function(k, v){ tv.storage._mem[k] = v; sendBridge({type:'storage.set', key:k, value:v}); }
+    }
+  };
+  window.tv = tv;
+
+  function handleBack(){
+    for (var i = backHandlers.length - 1; i >= 0; i--) {
+      if (backHandlers[i]() === true) return;
+    }
+    if (exitArmed) { sendBridge({type:'exit'}); return; }
+    exitArmed = true;
+    var n = document.createElement('div');
+    n.id = 'tv-back-toast'; n.textContent = 'Press Back again to leave';
+    n.style.cssText = 'position:fixed;left:50%;bottom:60px;transform:translateX(-50%);background:#111;color:#fff;padding:14px 28px;border-radius:10px;font-size:28px;z-index:9999;font-family:sans-serif';
+    document.body.appendChild(n);
+    clearTimeout(exitTimer);
+    exitTimer = setTimeout(function(){ exitArmed = false; var el = document.getElementById('tv-back-toast'); if (el) el.remove(); }, 2500);
+  }
+
+  var KEY = { 37:'left', 38:'up', 39:'right', 40:'down', 13:'select', 27:'back', 4:'back' };
+  function handleKey(code){
+    var k = KEY[code];
+    if (k === 'left' || k === 'right' || k === 'up' || k === 'down') {
+      moveFocus(k);
+      if (tv._keyFn) tv._keyFn({key:k});
+      return true;
+    }
+    if (k === 'select') {
+      var f = focusables[currentFocusIndex];
+      if (f) f.click();
+      if (tv._keyFn) tv._keyFn({key:'select'});
+      return true;
+    }
+    if (k === 'back') { handleBack(); return true; }
+    return false;
+  }
+  window.addEventListener('keydown', function(e){
+    if (handleKey(e.keyCode)) e.preventDefault();
+  });
+  window.addEventListener('message', function(e){
+    var m = e.data;
+    if (e.source !== window.parent || window.parent === window) return;
+    if (m && m.type === 'key' && typeof m.keyCode === 'number') handleKey(m.keyCode);
+  });
+
+  setInterval(function(){ sendBridge({type:'heartbeat'}); }, 2000);
+  window.addEventListener('error', function(e){
+    sendBridge({type:'error', message: String(e.message), stack: e.error && e.error.stack});
+  });
+
+  var lastView = '';
+  setInterval(function(){
+    var s = document.querySelector('.screen.active'), f = document.querySelector('.tv-focus');
+    var t = document.querySelector('h1.app-title'), p = document.getElementById('pause'), r = document.getElementById('reveal-text');
+    var view = { screen: s ? s.id : null, focused: f ? f.textContent.trim() : null, appTitle: t ? t.textContent : null,
+      paused: !!(p && p.classList.contains('show')), reveal: r ? r.textContent : null };
+    var key = JSON.stringify(view);
+    if (key !== lastView) { lastView = key; view.type = 'view'; sendBridge(view); }
+  }, 150);
+
+  document.addEventListener('DOMContentLoaded', function(){
+    refreshFocusables();
+  });
+})();
+</script>
+<script>
+  var QUESTIONS = [{q:"Which fish is the main character in \"Finding Nemo\"?",c:["Clownfish","Shark","Dolphin","Octopus"],a:0},{q:"In \"Frozen\", what is Elsa's power?",c:["Fire","Ice and snow","Wind","Invisibility"],a:1},{q:"What is the name of the toy cowboy in \"Toy Story\"?",c:["Buzz","Rex","Woody","Hamm"],a:2},{q:"Which movie features a house that flies with balloons?",c:["Up","Cars","Brave","Coco"],a:0},{q:"In \"The Lion King\", who is Simba's father?",c:["Scar","Mufasa","Rafiki","Zazu"],a:1},{q:"What color is Shrek?",c:["Blue","Purple","Green","Orange"],a:2},{q:"Which movie has a snowman named Olaf?",c:["Frozen","Moana","Encanto","Tangled"],a:0},{q:"In \"Finding Nemo\", what is Dory's problem?",c:["She can't swim","She forgets things","She is afraid of water","She can't see"],a:1},{q:"What does Buzz Lightyear say instead of goodbye?",c:["See you later","To infinity and beyond","Catch you on the flip side","Blast off"],a:1},{q:"Which animal is Simba?",c:["Tiger","Lion","Leopard","Cheetah"],a:1},{q:"In \"Moana\", what does Moana sail across?",c:["A desert","A mountain","The ocean","A river"],a:2},{q:"What is the name of the robot in \"WALL-E\"?",c:["WALL-E","EVE","R2D2","BB-8"],a:0},{q:"Which movie features Elsa and Anna?",c:["Frozen","Tangled","Brave","Encanto"],a:0},{q:"In \"Cars\", what type of vehicle is Lightning McQueen?",c:["Truck","Race car","Bus","Tractor"],a:1},{q:"What do the minions love most in \"Despicable Me\"?",c:["Pizza","Bananas","Candy","Ice cream"],a:1}];
+  var TEAMS = 2, ROUNDS = 3, PER_ROUND = 5, SECS = 20;
+  var scores = []; for (var i=0;i<TEAMS;i++) scores.push(0);
+  var qi = 0, turnTeam = 0, timer = null, remaining = SECS, paused = false, answered = false;
+
+  function goTo(id){
+    document.querySelectorAll('.screen').forEach(function(s){ s.classList.remove('active'); });
+    document.getElementById(id).classList.add('active');
+    renderScoreboard();
+    if (window.tv) tv.ready();
+  }
+  function renderScoreboard(){
+    document.getElementById('scoreboard').textContent =
+      scores.map(function(s,i){ return 'Team ' + (i+1) + ': ' + s; }).join('   ·   ');
+  }
+  function startTimer(){
+    clearInterval(timer); remaining = SECS; updateTimerBar();
+    timer = setInterval(function(){
+      if (paused) return;
+      remaining--; updateTimerBar();
+      if (remaining <= 0) { clearInterval(timer); revealAnswer(-1); }
+    }, 1000);
+  }
+  function updateTimerBar(){
+    var pct = Math.max(0, remaining / SECS) * 100;
+    document.getElementById('q-timerfill').style.width = pct + '%';
+  }
+  function renderQuestion(){
+    answered = false;
+    var q = QUESTIONS[qi];
+    document.getElementById('q-round-label').textContent =
+      'Round ' + (Math.floor(qi/PER_ROUND)+1) + ' of ' + ROUNDS + ' — Team ' + (turnTeam+1) + "'s turn";
+    document.getElementById('q-text').textContent = q.q;
+    var box = document.getElementById('q-choices'); box.innerHTML = '';
+    q.c.forEach(function(choice, idx){
+      var b = document.createElement('button');
+      b.className = 'choice'; b.setAttribute('data-focus', '');
+      b.textContent = String.fromCharCode(65+idx) + '.  ' + choice;
+      b.onclick = function(){ if (!answered) revealAnswer(idx); };
+      box.appendChild(b);
+    });
+    goTo('s-question');
+    startTimer();
+  }
+  function revealAnswer(chosenIdx){
+    answered = true; clearInterval(timer);
+    var q = QUESTIONS[qi];
+    var correct = chosenIdx === q.a;
+    if (correct) scores[turnTeam] += 10;
+    document.getElementById('reveal-text').textContent =
+      correct ? 'Correct! +10 points' : ('Wrong — answer was: ' + q.c[q.a]);
+    goTo('s-reveal');
+  }
+  function nextQuestion(){
+    qi++; turnTeam = (turnTeam+1) % TEAMS;
+    if (qi >= QUESTIONS.length) {
+      document.getElementById('final-text').textContent =
+        scores.map(function(s,i){ return 'Team ' + (i+1) + ': ' + s + ' pts'; }).join('   |   ');
+      goTo('s-final');
+    } else {
+      renderQuestion();
+    }
+  }
+  function restart(){
+    qi = 0; turnTeam = 0; scores = scores.map(function(){ return 0; });
+    goTo('s-title');
+  }
+  function pauseGame(){ paused = true; document.getElementById('pause').classList.add('show'); tv.refocus(); }
+  function resumeGame(){ paused = false; document.getElementById('pause').classList.remove('show'); tv.refocus(); }
+
+  window.tv.on('back', function(){
+    if (document.getElementById('s-title').classList.contains('active')) return false;
+    if (document.getElementById('pause').classList.contains('show')) { resumeGame(); return true; }
+    pauseGame(); return true;
+  });
+  window.tv.on('key', function(e){ if (e.key === 'select' && document.getElementById('s-title').classList.contains('active')) {} });
+
+  document.addEventListener('DOMContentLoaded', function(){ tv.ready(); });
+</script>
+</body></html>
