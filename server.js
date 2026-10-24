@@ -701,7 +701,10 @@ const server = http.createServer(async (req, res) => {
       return sendJSON(res, 200, { approved: entry.approved, tvId: entry.tvId });
     }
     if (p === '/v1/tvs' && req.method === 'GET') {
-      return sendJSON(res, 200, { tvs: Object.values(db.tvs).filter(t => t.paired) });
+      const now = Date.now();
+      const tvs = Object.values(db.tvs).filter(t => t.paired)
+        .map(t => Object.assign({}, t, { lastSeenAt: t.lastSeenAt || null, online: !!t.lastSeenAt && now - t.lastSeenAt < 5000 }));
+      return sendJSON(res, 200, { tvs, now });
     }
 
     if (p === '/v1/plans' && req.method === 'POST') {
@@ -784,10 +787,11 @@ const server = http.createServer(async (req, res) => {
       const tvv = db.tvs[tvId];
       if (!app || !app.currentVersionId) return sendJSON(res, 404, { error: 'app has no ready version' });
       if (!tvv || !tvv.paired) return sendJSON(res, 404, { error: 'tv not paired' });
-      tvv.apps[appId] = { appId, versionId: app.currentVersionId, deliveredAt: Date.now(), opened: false };
-      db.events.push({ tvId, type: 'delivery', appId, title: app.title, at: Date.now() });
+      const deliveredAt = Date.now();
+      tvv.apps[appId] = { appId, versionId: app.currentVersionId, deliveredAt, opened: false };
+      db.events.push({ tvId, type: 'delivery', appId, title: app.title, at: deliveredAt });
       saveDB();
-      return sendJSON(res, 200, { ok: true });
+      return sendJSON(res, 200, { ok: true, deliveredAt, title: app.title });
     }
     if (p.startsWith('/v1/tv/') && p.endsWith('/apps') && req.method === 'GET') {
       const tvId = p.split('/')[3];
@@ -795,13 +799,16 @@ const server = http.createServer(async (req, res) => {
       if (!tvv) return sendJSON(res, 404, { error: 'not found' });
       const list = Object.values(tvv.apps).map(e => {
         const app = db.apps[e.appId];
-        return { appId: e.appId, title: app ? app.title : '(deleted)', deliveredAt: e.deliveredAt };
+        return { appId: e.appId, title: app ? app.title : '(deleted)', deliveredAt: e.deliveredAt, opened: !!e.opened, openedAt: e.openedAt || null };
       }).sort((a, b) => b.deliveredAt - a.deliveredAt);
       return sendJSON(res, 200, { apps: list });
     }
     if (p.startsWith('/v1/tv/') && p.endsWith('/events') && req.method === 'GET') {
       const tvId = p.split('/')[3];
       const since = Number(u.searchParams.get('since') || 0);
+      const tvv = db.tvs[tvId];
+      if (!tvv || !tvv.paired) return sendJSON(res, 404, { error: 'not found' });
+      tvv.lastSeenAt = Date.now();
       const events = db.events.filter(e => e.tvId === tvId && e.at > since);
       return sendJSON(res, 200, { events, now: Date.now() });
     }
@@ -814,6 +821,7 @@ const server = http.createServer(async (req, res) => {
       const app = db.apps[appId];
       const token = signLink(appId, entry.versionId, 5 * 60 * 1000);
       entry.opened = true;
+      entry.openedAt = Date.now();
       saveDB();
       return sendJSON(res, 200, { url: `/sandbox?t=${token}` });
     }
@@ -828,10 +836,19 @@ const server = http.createServer(async (req, res) => {
 });
 
 if (require.main === module) {
+  server.on('error', (e) => {
+    if (e && e.code === 'EADDRINUSE') {
+      console.error(`Port ${PORT} is already in use, so this server did not start.`);
+      console.error(`Stop the other server with: kill $(lsof -tiTCP:${PORT} -sTCP:LISTEN)`);
+      console.error(`Or use another port, for example: PORT=${PORT + 1} node server.js`);
+      process.exit(1);
+    }
+    throw e;
+  });
   server.listen(PORT, HOST, () => {
-    console.log(`Prompt-to-TV demo server: http://${HOST}:${PORT}`);
+    console.log(`App Studio server: http://${HOST}:${PORT}`);
     console.log(`  Builder:          http://${HOST}:${PORT}/builder.html`);
-    console.log(`  TV player sim:    http://${HOST}:${PORT}/player.html`);
+    console.log(`  TV player:        http://${HOST}:${PORT}/player.html`);
     console.log(`  Fire TV / emulator: adb reverse tcp:${PORT} tcp:${PORT}, then connect to http://localhost:${PORT}`);
     console.log(`  App writer:       ${modelWriter.enabled() ? 'AI model ' + modelWriter.MODEL_ID + ' (Amazon Bedrock)' : 'templates (set PTV_MODEL_ID to use a model)'}`);
   });

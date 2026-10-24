@@ -86,18 +86,54 @@ node server.js
 
 You should see `http://127.0.0.1:4848`. There's no `npm install` step for the server.
 
+If port 4848 is already in use, pick another one, for example `PORT=4850 node server.js`, and use that port in the addresses below.
+
 1. Open http://127.0.0.1:4848/player.html. This is the TV. Note the 6-character code.
-2. Open http://127.0.0.1:4848/builder.html in another window. This is the phone. To make it phone-sized, use Chrome DevTools → device toolbar.
+2. Open http://127.0.0.1:4848/builder.html in a second window (not a tab), so you can watch the TV and the phone side by side. This is the phone. To make it phone-sized on a Mac, press Cmd+Option+I, then Cmd+Shift+M, and pick a phone such as iPhone 12 Pro.
 3. In the builder:
-   - enter the code and choose Pair
-   - type an idea, for example "an animal quiz for kids", or pick an example
-   - choose 1. Plan it, then 2. Build it, then 3. Send to TV
+   - type the code into the six boxes. It pairs on its own once all six are in (pasting works too).
+   - tap an idea card, tap the dice for a random idea, or type or dictate your own with the microphone
+   - choose Plan it, adjust the plan if you like (name, teams, rounds, timings), then Build it
+   - try the app in the preview with the on-screen remote, or swipe and tap on the preview
+   - pick your TV and choose Send to TV
 4. On the player page, open the app from the banner, and play it with:
    - the arrow keys (D-pad)
    - Enter (OK)
    - Escape (Back, which opens the pause menu)
 
+While you do this, the builder shows each step live: Sent, then On your TV once the TV picks it up, then Playing once the TV opens it.
+
+Things to try:
+- Type a wrong code first to see the error, then the real one.
+- On the plan, change the number of teams or the seconds per question, then rename the app. The TV's title screen uses your name.
+- In the preview, press OK to start, swipe up or down to move between answers, and press Back to pause.
+- After Send to TV, open the app on the TV and watch the builder switch to Playing.
+- Tap Make another app to start over without pairing again.
+
 To reset all pairings and apps, stop the server and delete `data.json`.
+
+### What the builder does on a phone
+
+- A header chip shows the paired TV and whether it's on right now.
+- A progress bar across the top tracks Pair, Describe, Build and Send. Tap a step to jump to it.
+- The plan is editable: rename the app and change the numbers with the + and − buttons (hold to repeat). The summary, the estimated length and what the TV shows all follow your changes.
+- The build shows its stages as they run, then every check the app passed, in plain words.
+- The preview has an on-screen remote (D-pad, OK, Back, Restart), swipe and tap gestures, a live line showing what's on the screen and which item is highlighted, and full screen on browsers that allow it.
+- Phones that support it vibrate lightly on taps. Animations are turned off when the phone asks for reduced motion.
+- The microphone uses the browser's built-in speech recognition, which can send your voice to the browser maker's speech service (Google for Chrome, Apple for Safari). It only appears where the browser supports it.
+
+### Use a real Android phone as the builder
+
+The server only listens on your computer, so the phone reaches it over USB instead of Wi-Fi. Turn on USB debugging on the phone, connect it, then run:
+
+```bash
+adb devices                                    # note the phone's serial
+adb -s <phone-serial> reverse tcp:4848 tcp:4848
+```
+
+Open http://localhost:4848/builder.html in Chrome on the phone. Use `-s` because the TV emulator also uses adb. If you started the server on another port, use that port in both the `adb reverse` command and the address.
+
+An iPhone can't connect this way. Reaching the server over Wi-Fi would mean opening it to your network, and it has no login.
 
 ## Run on the Fire OS / Android TV app
 
@@ -251,7 +287,27 @@ The model writes only the app's markup and script. The platform adds the page, t
 
 ## Troubleshooting
 
+- The TV page shows no pairing code:
+  - If it shows `...` and "needs the App Studio server", the page was opened as a file. Start `node server.js` and open http://127.0.0.1:4848/player.html instead.
+  - If it shows "Can't reach the App Studio server", check that `node server.js` is still running. The page keeps retrying and shows a code once the server is back.
+  - If the terminal says the port is already in use, the server didn't start, and your browser may be showing a different server on that port. Stop the other server or use `PORT=4850 node server.js`.
+  - The TV page remembers its pairing. When you start with fresh data (a new copy, or after deleting `data.json`), it notices the old pairing is gone and shows a new code on its own. To force a new code at any time, open http://127.0.0.1:4848/player.html?reset=1.
 - `421 unexpected host`: open the pages at `127.0.0.1:4848` or `localhost:4848`.
 - The TV can't reach the server: run `adb reverse` / `vda reverse` again, because it resets when the emulator restarts. Also check that `node server.js` is still running.
-- Port 4848 is already in use: `kill $(lsof -tiTCP:4848 -sTCP:LISTEN)`.
+- Port 4848 is already in use: start on another port with `PORT=4850 node server.js`, or stop whatever holds it with `kill $(lsof -tiTCP:4848 -sTCP:LISTEN)`.
 - `npm ci` fails with an authentication error: run it inside `vega-player/` so its `.npmrc` (public registry) applies.
+
+## Third-party software
+
+- The server, the pages and the tests use only Node.js built-ins.
+- The Android app uses the Android SDK and AndroidX (Apache-2.0).
+- The Vega app depends on Amazon's `@amazon-devices/*` npm packages and the Vega SDK. These are licensed under the Amazon Program Materials License (https://developer.amazon.com/support/legal/pml), not an open-source license. They aren't included here; npm downloads them when you run `npm ci`.
+- Amazon Bedrock and Amazon Polly are optional paid AWS services.
+
+## Roadmap
+
+- Measure how often the Bedrock writer passes validation across varied prompts.
+- Add QR-code pairing and sign-in, so the builder runs on a real phone against a hosted, authenticated service.
+- Test on physical Fire TV hardware.
+- Add approved data feeds (scores, weather) without opening the sandbox.
+- Prepare an Appstore submission with moderation and family-safe defaults.

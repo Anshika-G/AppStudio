@@ -54,10 +54,10 @@
     <div id="unpaired">
       <b>Pair your phone.</b> Open App Studio on your phone and enter this code.
       <div style="margin-top:10px">Pairing code: <code id="pair-code">...</code> &nbsp; <span class="small">(valid 10 minutes)</span></div>
-      <div class="small" style="margin-top:6px">Waiting for approval…</div>
+      <div class="small" id="pair-status" style="margin-top:6px">Waiting for approval…</div>
     </div>
     <div id="paired" style="display:none">
-      Paired as <b id="tv-name">Living Room TV</b><span class="tv-hide"> (<code id="tv-id"></code>). <button onclick="location.reload()">Unpair / reset</button></span>
+      Paired as <b id="tv-name">Living Room TV</b><span class="tv-hide"> (<code id="tv-id"></code>). <button onclick="forgetTv()">Unpair / reset</button></span>
     </div>
   </div>
 
@@ -91,23 +91,83 @@
   let lastEventTs = 0;
   let homeFocusIdx = -1;
 
+  let pairGen = 0, loopGen = 0;
+  function setPairStatus(text){
+    const el = document.getElementById('pair-status');
+    if (el) el.textContent = text;
+  }
+  function unreachableText(){
+    return location.protocol === 'file:'
+      ? 'This page needs the App Studio server. Run node server.js, then open http://127.0.0.1:4848/player.html'
+      : "Can't reach the App Studio server. Trying again…";
+  }
+  function showUnpaired(){
+    loopGen++;
+    pairCode = null; lastEventTs = 0; bannerAppId = null;
+    document.getElementById('paired').style.display = 'none';
+    document.getElementById('home').style.display = 'none';
+    document.getElementById('banner').classList.remove('show');
+    document.getElementById('unpaired').style.display = 'block';
+    document.getElementById('pair-code').textContent = '...';
+    setPairStatus('Getting a pairing code…');
+  }
+  function startOver(){
+    localStorage.removeItem('ptv_tvId');
+    tvId = null;
+    showUnpaired();
+    startPairing();
+  }
+  function forgetTv(){
+    localStorage.removeItem('ptv_offline_state');
+    startOver();
+  }
   async function startPairing(){
-    const r = await fetch(API + '/v1/device/code', { method:'POST' });
-    const data = await r.json();
+    const gen = ++pairGen;
+    let data = null;
+    try {
+      const r = await fetch(API + '/v1/device/code', { method:'POST' });
+      if (r.ok) data = await r.json();
+    } catch (e) {}
+    if (gen !== pairGen) return;
+    if (!data || !data.code) {
+      setPairStatus(unreachableText());
+      setTimeout(() => { if (gen === pairGen) startPairing(); }, 3000);
+      return;
+    }
     pairCode = data.code; tvId = data.tvId;
     document.getElementById('pair-code').textContent = pairCode;
-    pollApproval();
+    setPairStatus('Waiting for approval…');
+    pollApproval(gen);
   }
-  async function pollApproval(){
-    const r = await fetch(API + '/v1/device/poll?code=' + pairCode);
-    const data = await r.json();
-    if (data.approved) {
+  async function pollApproval(gen){
+    if (gen !== pairGen) return;
+    let r = null, data = null;
+    try {
+      r = await fetch(API + '/v1/device/poll?code=' + encodeURIComponent(pairCode));
+      data = await r.json();
+    } catch (e) {}
+    if (gen !== pairGen) return;
+    if (!r) {
+      setPairStatus(unreachableText());
+      setTimeout(() => pollApproval(gen), 3000);
+      return;
+    }
+    if (r.status === 404 || r.status === 410) { startPairing(); return; }
+    if (data && data.approved) {
       localStorage.setItem('ptv_tvId', tvId);
       showPaired();
       startEventLoop();
       return;
     }
-    setTimeout(pollApproval, 1500);
+    setPairStatus('Waiting for approval…');
+    setTimeout(() => pollApproval(gen), 1500);
+  }
+  async function resumeSavedTv(){
+    let r = null;
+    try { r = await fetch(API + '/v1/tv/' + encodeURIComponent(tvId) + '/apps'); } catch (e) {}
+    if (r && r.status === 404) { startOver(); return; }
+    showPaired();
+    startEventLoop();
   }
   function showPaired(){
     document.getElementById('unpaired').style.display = 'none';
@@ -117,7 +177,10 @@
     refreshApps();
   }
   async function refreshApps(focusAppId){
-    const r = await fetch(API + '/v1/tv/' + tvId + '/apps');
+    let r;
+    try { r = await fetch(API + '/v1/tv/' + tvId + '/apps'); } catch (e) { return; }
+    if (r.status === 404) { startOver(); return; }
+    if (!r.ok) return;
     const data = await r.json();
     const box = document.getElementById('app-tiles');
     box.innerHTML = '';
@@ -138,9 +201,13 @@
     setHomeFocus(tiles);
   }
   async function startEventLoop(){
+    const gen = ++loopGen;
     async function poll(){
+      if (gen !== loopGen) return;
       try {
         const r = await fetch(API + '/v1/tv/' + tvId + '/events?since=' + lastEventTs);
+        if (gen !== loopGen) return;
+        if (r.status === 404) { startOver(); return; }
         const data = await r.json();
         lastEventTs = data.now;
         data.events.forEach(e => {
@@ -152,7 +219,7 @@
           }
         });
       } catch (e) {}
-      setTimeout(poll, 1200);
+      if (gen === loopGen) setTimeout(poll, 1200);
     }
     poll();
   }
@@ -254,7 +321,7 @@
     }, 150);
   }
 
-  if (tvId) { showPaired(); startEventLoop(); } else { startPairing(); }
+  if (tvId) { resumeSavedTv(); } else { startPairing(); }
 </script>
 </body>
 </html>

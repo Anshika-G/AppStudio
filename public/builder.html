@@ -2,193 +2,1016 @@
 <html lang="en">
 <head>
 <meta charset="utf-8">
-<meta name="viewport" content="width=device-width, initial-scale=1">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<meta name="theme-color" content="#0b1020">
 <title>App Studio — Build your own app</title>
 <style>
-  html,body { margin:0; font-family:-apple-system,Segoe UI,Helvetica,Arial,sans-serif; background:#f5f7f9; color:#1b1f23; }
-  .wrap { max-width:760px; margin:0 auto; padding:24px; }
-  header h1 { font-size:24px; margin:0; }
-  header p { margin:4px 0 0; color:#5a6470; font-size:14px; }
-  h3 { margin:0 0 8px; font-size:17px; }
-  textarea { width:100%; height:70px; font-size:15px; padding:10px; border-radius:8px; border:1px solid #d9dee3; box-sizing:border-box; }
-  input { font-size:16px; padding:8px; width:140px; text-transform:uppercase; border-radius:8px; border:1px solid #d9dee3; }
-  button { font-size:14px; padding:10px 18px; border-radius:8px; border:1px solid #0b5cad; background:#0b5cad; color:#fff; cursor:pointer; margin-top:8px; }
-  button.secondary { background:#fff; color:#0b5cad; }
-  button:disabled { opacity:.5; cursor:default; }
-  .examples button { background:#fff; color:#1b1f23; border-color:#d9dee3; font-size:13px; margin:4px 4px 0 0; }
-  pre { background:#f8fafb; border:1px solid #d9dee3; border-radius:8px; padding:12px; font-size:12px; overflow:auto; max-height:220px; }
-  .card { background:#fff; border:1px solid #d9dee3; border-radius:12px; padding:16px; margin-top:16px; }
-  .small { font-size:12px; color:#5a6470; }
-  .ok { color:#1a7f37; } .bad { color:#b42318; }
-  table { width:100%; border-collapse:collapse; font-size:13px; }
-  td,th { border-bottom:1px solid #eee; padding:4px 6px; text-align:left; }
-  .scaled { width:100%; aspect-ratio:16 / 9; overflow:hidden; position:relative; background:#000; border-radius:6px; }
+  :root { --bg:#0b1020; --panel:rgba(255,255,255,.06); --line:rgba(255,255,255,.13); --text:#eef2ff; --muted:#aab4cf;
+    --a1:#7c5cff; --a2:#00c2ff; --ok:#34d399; --warn:#fbbf24; --bad:#f87171;
+    --grad:linear-gradient(135deg,#7c5cff 0%,#4f7cff 50%,#00c2ff 100%); }
+  * { box-sizing:border-box; }
+  [hidden] { display:none !important; }
+  html { -webkit-text-size-adjust:100%; }
+  body { margin:0; min-height:100vh; color:var(--text); font:16px/1.45 -apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,Helvetica,Arial,sans-serif;
+    background:radial-gradient(1000px 600px at -10% -20%,rgba(124,92,255,.45),transparent 60%),
+      radial-gradient(800px 600px at 120% 0%,rgba(0,194,255,.28),transparent 60%),var(--bg);
+    background-attachment:fixed; -webkit-tap-highlight-color:transparent; }
+  button { font-family:inherit; }
+  :focus-visible { outline:3px solid var(--a2); outline-offset:2px; }
+
+  .top { position:sticky; top:0; z-index:30; padding:calc(10px + env(safe-area-inset-top)) 16px 10px;
+    background:rgba(11,16,32,.78); backdrop-filter:saturate(1.4) blur(16px); -webkit-backdrop-filter:saturate(1.4) blur(16px);
+    border-bottom:1px solid var(--line); }
+  .top-in { max-width:480px; margin:0 auto; }
+  .bar { display:flex; align-items:center; justify-content:space-between; gap:10px; }
+  .brand { display:flex; align-items:center; gap:10px; min-width:0; }
+  .logo { width:36px; height:36px; flex:none; border-radius:11px; background:var(--grad); display:grid; place-items:center;
+    font-size:15px; box-shadow:0 6px 18px rgba(124,92,255,.45); }
+  .brand h1 { font-size:18px; margin:0; }
+  .brand p { margin:0; font-size:12px; color:var(--muted); white-space:nowrap; }
+  .chip { display:inline-flex; align-items:center; gap:8px; min-height:38px; max-width:52%; padding:6px 12px; border-radius:999px;
+    border:1px solid var(--line); background:rgba(255,255,255,.06); color:var(--text); font-size:13px; cursor:pointer; }
+  .chip .txt { white-space:nowrap; overflow:hidden; text-overflow:ellipsis; }
+  .dot { width:9px; height:9px; border-radius:50%; background:#6b7280; flex:none; }
+  .online .dot { background:var(--ok); animation:ping 2s infinite; }
+  .offline .dot { background:var(--warn); }
+  @keyframes ping { 0% { box-shadow:0 0 0 0 rgba(52,211,153,.55); } 80%,100% { box-shadow:0 0 0 9px rgba(52,211,153,0); } }
+  .steps { display:flex; gap:6px; list-style:none; margin:10px 0 0; padding:0; }
+  .steps li { flex:1; display:flex; align-items:center; justify-content:center; gap:6px; padding:6px 2px; border-radius:999px;
+    font-size:12px; color:var(--muted); background:rgba(255,255,255,.04); border:1px solid transparent; cursor:pointer; transition:.25s; }
+  .steps li span { width:18px; height:18px; border-radius:50%; display:grid; place-items:center; font-size:11px; font-weight:700;
+    background:rgba(255,255,255,.1); }
+  .steps li.active { color:var(--text); border-color:rgba(124,92,255,.6); background:rgba(124,92,255,.18); }
+  .steps li.active span { background:var(--grad); }
+  .steps li.done { color:#c7f5e4; }
+  .steps li.done span { background:var(--ok); color:#06281c; }
+
+  .wrap { max-width:480px; margin:0 auto; padding:4px 16px calc(48px + env(safe-area-inset-bottom)); }
+  .card { background:var(--panel); border:1px solid var(--line); border-radius:22px; padding:18px; margin-top:14px;
+    scroll-margin-top:118px; box-shadow:0 10px 30px rgba(0,0,0,.25); animation:rise .45s cubic-bezier(.2,.8,.2,1); }
+  @keyframes rise { from { opacity:0; transform:translateY(14px); } to { opacity:1; transform:none; } }
+  .card.slim { display:flex; align-items:center; gap:12px; padding:12px 14px; }
+  .card-h { display:flex; gap:12px; align-items:flex-start; margin-bottom:14px; }
+  .ico { width:40px; height:40px; flex:none; border-radius:12px; display:grid; place-items:center; font-size:20px; background:rgba(255,255,255,.08); }
+  h2 { font-size:18px; margin:0 0 2px; }
+  .small { font-size:13px; color:var(--muted); margin:0; }
+  .link { background:none; border:0; color:var(--a2); font-size:14px; font-weight:600; cursor:pointer; padding:8px 4px; margin-left:auto; }
+
+  .btn { appearance:none; display:flex; align-items:center; justify-content:center; gap:8px; width:100%; min-height:52px; margin-top:14px;
+    padding:12px 18px; border-radius:16px; border:1px solid transparent; font-size:16px; font-weight:650; color:#fff; cursor:pointer;
+    transition:transform .12s, filter .2s, opacity .2s, background .3s; }
+  .btn.primary { background:var(--grad); box-shadow:0 10px 24px rgba(79,124,255,.35); }
+  .btn.ghost { background:rgba(255,255,255,.08); border-color:var(--line); }
+  .btn.big { min-height:60px; font-size:18px; }
+  .btn.sent { background:linear-gradient(135deg,#10b981,#34d399); }
+  .btn:active { transform:scale(.98); }
+  .btn:disabled { opacity:.65; cursor:default; }
+  .btn.pulse { animation:pulse 1.1s ease-in-out 2; }
+  @keyframes pulse { 50% { box-shadow:0 0 0 8px rgba(124,92,255,.28),0 10px 24px rgba(79,124,255,.35); } }
+  .spin { width:16px; height:16px; border-radius:50%; border:2px solid rgba(255,255,255,.35); border-top-color:#fff; animation:spin .8s linear infinite; flex:none; }
+  @keyframes spin { to { transform:rotate(360deg); } }
+  .status { min-height:20px; margin:10px 0 0; font-size:14px; color:var(--muted); }
+  .status.paired { color:var(--ok); font-weight:600; }
+  .status.bad { color:var(--bad); }
+  .shake { animation:shake .4s; }
+  @keyframes shake { 20%,60% { transform:translateX(-6px); } 40%,80% { transform:translateX(6px); } }
+
+  .otp { display:flex; gap:8px; }
+  .otp input { flex:1; min-width:0; height:58px; text-align:center; font:700 24px/1 ui-monospace,SFMono-Regular,Menlo,monospace;
+    text-transform:uppercase; color:var(--text); background:rgba(0,0,0,.28); border:1.5px solid var(--line); border-radius:14px;
+    caret-color:var(--a2); transition:.15s; }
+  .otp input:focus { border-color:var(--a2); box-shadow:0 0 0 4px rgba(0,194,255,.18); outline:none; }
+  .otp input.filled { border-color:rgba(124,92,255,.75); background:rgba(124,92,255,.14); }
+  .otp.ok input { border-color:var(--ok); background:rgba(52,211,153,.14); animation:pop .35s; }
+
+  .ideas { display:flex; gap:10px; overflow-x:auto; scroll-snap-type:x proximity; scroll-padding-inline:18px; margin:0 -18px 8px; padding:2px 18px 10px; scrollbar-width:none; }
+  .ideas::-webkit-scrollbar { display:none; }
+  .idea { flex:0 0 136px; scroll-snap-align:start; text-align:left; padding:12px; border-radius:16px; border:1px solid var(--line);
+    background:rgba(255,255,255,.05); color:var(--text); cursor:pointer; transition:transform .18s, border-color .18s, background .18s; }
+  .idea .em { font-size:26px; line-height:1; }
+  .idea b { display:block; font-size:14px; margin-top:8px; }
+  .idea small { color:var(--muted); font-size:12px; }
+  .idea.sel { border-color:rgba(0,194,255,.85); background:rgba(0,194,255,.13); transform:translateY(-2px); }
+  .field { position:relative; }
+  textarea, .input { width:100%; font:16px/1.45 inherit; font-family:inherit; color:var(--text); background:rgba(0,0,0,.28);
+    border:1.5px solid var(--line); border-radius:16px; padding:12px 14px; outline:none; resize:none; }
+  textarea#desc { padding-right:58px; min-height:104px; }
+  textarea:focus, .input:focus { border-color:var(--a2); box-shadow:0 0 0 4px rgba(0,194,255,.15); }
+  .tools { position:absolute; right:8px; top:8px; display:flex; flex-direction:column; gap:6px; }
+  .icon-btn { width:42px; height:42px; border-radius:12px; border:1px solid var(--line); background:rgba(255,255,255,.08); color:var(--text);
+    font-size:18px; cursor:pointer; display:grid; place-items:center; }
+  .icon-btn.live { background:rgba(248,113,113,.25); border-color:var(--bad); animation:ring 1.3s infinite; }
+  @keyframes ring { 0% { box-shadow:0 0 0 0 rgba(248,113,113,.5); } 100% { box-shadow:0 0 0 12px rgba(248,113,113,0); } }
+  .hint { font-size:12px; color:var(--muted); margin:8px 2px 0; }
+
+  .kind { display:inline-flex; align-items:center; gap:6px; padding:4px 10px; border-radius:999px; font-size:12px; font-weight:600;
+    background:rgba(124,92,255,.18); border:1px solid rgba(124,92,255,.45); color:#ddd6ff; }
+  .input.title { font-weight:700; font-size:18px; margin-top:10px; }
+  .summary { margin:10px 0 0; font-size:14px; color:#d6dcf0; }
+  .meta { display:flex; flex-wrap:wrap; gap:6px; margin-top:10px; }
+  .meta span { font-size:12px; padding:4px 10px; border-radius:999px; background:rgba(255,255,255,.07); border:1px solid var(--line); }
+  .steppers { display:grid; gap:8px; margin-top:14px; }
+  .stepper { display:flex; align-items:center; justify-content:space-between; gap:10px; padding:7px 7px 7px 14px; border-radius:14px;
+    background:rgba(0,0,0,.22); border:1px solid var(--line); }
+  .stepper .lbl { font-size:14px; }
+  .ctl { display:flex; align-items:center; gap:6px; }
+  .ctl button { width:44px; height:44px; border-radius:12px; border:1px solid var(--line); background:rgba(255,255,255,.08); color:var(--text);
+    font-size:22px; cursor:pointer; touch-action:manipulation; user-select:none; -webkit-user-select:none; }
+  .ctl output { min-width:62px; text-align:center; font:700 17px/1 ui-monospace,SFMono-Regular,Menlo,monospace; }
+  .bump { animation:bump .25s; }
+  @keyframes bump { 50% { transform:scale(1.25); color:var(--a2); } }
+  .flow { display:flex; flex-wrap:wrap; gap:6px; align-items:center; margin-top:14px; font-size:12px; }
+  .flow span { padding:4px 9px; border-radius:8px; background:rgba(0,194,255,.12); border:1px solid rgba(0,194,255,.35); }
+  .flow i { color:var(--muted); font-style:normal; }
+  .controls { margin:12px 0 0; padding:0; list-style:none; display:grid; gap:6px; font-size:13px; color:#d6dcf0; }
+  .controls kbd { display:inline-block; min-width:54px; text-align:center; margin-right:8px; padding:2px 6px; border-radius:6px;
+    background:rgba(255,255,255,.1); border:1px solid var(--line); font:600 12px/1.5 inherit; font-family:inherit; color:var(--text); }
+  details { margin-top:12px; }
+  summary { cursor:pointer; color:var(--muted); font-size:13px; padding:4px 0; }
+  pre { background:rgba(0,0,0,.35); border:1px solid var(--line); border-radius:12px; padding:12px; font-size:11px; overflow:auto;
+    max-height:220px; color:#cfe3ff; }
+
+  .stage { display:flex; align-items:center; gap:12px; padding:9px 0; color:var(--muted); font-size:15px; transition:color .2s; }
+  .st-ico { width:22px; height:22px; border-radius:50%; border:2px solid rgba(255,255,255,.22); display:grid; place-items:center;
+    font-size:12px; font-weight:800; flex:none; }
+  .active > .st-ico { border-top-color:var(--a2); animation:spin .8s linear infinite; }
+  .done > .st-ico { border-color:var(--ok); background:var(--ok); color:#06281c; animation:pop .3s; }
+  .done > .st-ico::after { content:"\2713"; }
+  .bad > .st-ico { border-color:var(--bad); background:var(--bad); color:#2b0606; }
+  .bad > .st-ico::after { content:"\2715"; }
+  .stage.active, .stage.done, .stage.bad { color:var(--text); }
+  @keyframes pop { 0% { transform:scale(.4); } 70% { transform:scale(1.15); } 100% { transform:scale(1); } }
+  .hero { display:flex; gap:14px; align-items:center; margin-top:6px; }
+  .hero-ico { width:54px; height:54px; flex:none; border-radius:16px; display:grid; place-items:center; font-size:26px; font-weight:800;
+    color:var(--ok); background:rgba(52,211,153,.16); border:1px solid rgba(52,211,153,.5); animation:pop .4s; }
+  .hero.fail .hero-ico { color:var(--bad); background:rgba(248,113,113,.16); border-color:rgba(248,113,113,.5); }
+  .pill { display:inline-block; padding:3px 10px; border-radius:999px; font-size:12px; font-weight:700; letter-spacing:.4px; margin-right:8px; }
+  .pill.ready { background:rgba(52,211,153,.18); color:var(--ok); }
+  .pill.failed { background:rgba(248,113,113,.18); color:var(--bad); }
+  .writer { font-size:12px; color:var(--muted); }
+  #checkSummary { margin-top:12px; }
+  table { width:100%; border-collapse:collapse; font-size:14px; margin-top:6px; }
+  td { padding:8px 4px; border-bottom:1px solid rgba(255,255,255,.06); vertical-align:top; }
+  td small { display:block; color:var(--muted); font-size:12px; }
+  td.ic { width:28px; font-weight:800; }
+  .ok { color:var(--ok); } .bad-t { color:var(--bad); }
+  tr.row { animation:slidein .35s both; }
+  @keyframes slidein { from { opacity:0; transform:translateX(-8px); } to { opacity:1; transform:none; } }
+  label.small { display:block; margin:14px 0 6px; }
+
+  .tv { padding:8px; border-radius:18px; background:linear-gradient(180deg,#1b2333,#0e131f); border:1px solid var(--line); }
+  .scaled { width:100%; aspect-ratio:16 / 9; overflow:hidden; position:relative; background:#000; border-radius:10px; }
   .scaled iframe { width:1920px; height:1080px; border:0; transform-origin:0 0; position:absolute; left:0; top:0; }
-  select { font-size:14px; padding:6px; max-width:100%; }
-  .pill { display:inline-block; padding:3px 10px; border-radius:999px; font-size:12px; margin-right:6px; }
-  .pill.ready { background:#e6f4ea; color:#1a7f37; }
-  .pill.failed { background:#fdeeed; color:#b42318; }
-  #approveStatus.paired { color:#1a7f37; font-weight:600; }
-  @media (max-width: 600px) {
-    .wrap { padding:14px; }
-    textarea { font-size:16px; height:96px; }
-    .card { padding:12px; margin-top:12px; }
-    table { font-size:12px; }
-    td,th { padding:3px 4px; }
-    pre { font-size:11px; max-height:170px; }
+  .touch { position:absolute; inset:0; z-index:1; touch-action:none; cursor:pointer; outline:none; border-radius:10px; }
+  .touch:focus-visible { box-shadow:inset 0 0 0 3px var(--a2); }
+  .fx { position:absolute; z-index:2; left:50%; top:50%; width:64px; height:64px; margin:-32px 0 0 -32px; border-radius:50%; display:grid;
+    place-items:center; font-size:24px; background:rgba(0,0,0,.5); color:#fff; opacity:0; pointer-events:none; }
+  .fx.show { animation:fx .45s ease-out; }
+  @keyframes fx { 0% { opacity:.95; transform:scale(.7); } 100% { opacity:0; transform:scale(1.35); } }
+  .fsbar { position:absolute; z-index:3; top:12px; right:12px; display:none; gap:8px; }
+  .fsbar button { min-height:42px; padding:0 14px; border-radius:12px; border:1px solid rgba(255,255,255,.3); background:rgba(0,0,0,.55);
+    color:#fff; font-size:14px; font-weight:600; }
+  .scaled:fullscreen { width:100vw; height:100vh; aspect-ratio:auto; border-radius:0; }
+  .scaled:fullscreen .fsbar { display:flex; }
+  .scaled:-webkit-full-screen { width:100vw; height:100vh; aspect-ratio:auto; border-radius:0; }
+  .scaled:-webkit-full-screen .fsbar { display:flex; }
+  .stand { width:34%; height:8px; margin:8px auto 0; border-radius:0 0 10px 10px; background:linear-gradient(180deg,#273044,#151b29); }
+  .now { min-height:20px; margin:10px 2px 0; font-size:13px; color:#cfe3ff; }
+  .remote { display:flex; align-items:center; gap:14px; margin-top:12px; padding:14px; border-radius:22px;
+    background:linear-gradient(180deg,rgba(255,255,255,.08),rgba(255,255,255,.03)); border:1px solid var(--line); }
+  .dpad { position:relative; width:168px; height:168px; flex:none; border-radius:50%;
+    background:radial-gradient(circle at 50% 40%,#232c40,#121826); border:1px solid var(--line); box-shadow:inset 0 2px 10px rgba(0,0,0,.5); }
+  .dpad .k { position:absolute; width:56px; height:56px; border:0; background:transparent; color:#dfe6ff; font-size:18px; cursor:pointer;
+    border-radius:16px; touch-action:manipulation; }
+  .dpad .up { left:56px; top:0; } .dpad .down { left:56px; bottom:0; } .dpad .left { left:0; top:56px; } .dpad .right { right:0; top:56px; }
+  .dpad .okk { left:46px; top:46px; width:76px; height:76px; border-radius:50%; background:var(--grad); color:#fff; font-weight:800;
+    font-size:16px; box-shadow:0 6px 16px rgba(79,124,255,.45); }
+  .side { display:flex; flex-direction:column; gap:8px; flex:1; min-width:0; }
+  .side .k { min-height:46px; border-radius:14px; border:1px solid var(--line); background:rgba(255,255,255,.08); color:var(--text);
+    font-size:14px; font-weight:600; cursor:pointer; touch-action:manipulation; }
+  .hit { animation:hit .18s; }
+  @keyframes hit { 50% { transform:scale(.9); filter:brightness(1.5); } }
+  @media (max-width:360px) { .remote { flex-direction:column; } .side { flex-direction:row; width:100%; } .side .k { flex:1; } }
+
+  .tvs { display:grid; gap:8px; }
+  .tvopt { display:flex; align-items:center; gap:12px; width:100%; padding:12px 14px; border-radius:16px; border:1.5px solid var(--line);
+    background:rgba(0,0,0,.22); color:var(--text); text-align:left; cursor:pointer; font:inherit; }
+  .tvopt .tvi { font-size:22px; }
+  .tvopt b { display:block; font-size:15px; }
+  .tvopt small { color:var(--muted); font-size:12px; }
+  .tvopt .st { margin-left:auto; display:flex; align-items:center; gap:6px; font-size:12px; color:var(--muted); white-space:nowrap; }
+  .tvopt[aria-checked="true"] { border-color:var(--a2); background:rgba(0,194,255,.1); }
+  .notv { padding:14px; border-radius:16px; border:1.5px dashed var(--line); color:var(--muted); font-size:14px; text-align:center; }
+  .track { list-style:none; margin:18px 0 0; padding:0; }
+  .track li { display:flex; gap:12px; align-items:flex-start; position:relative; padding:0 0 16px; color:var(--muted); }
+  .track li:not(:last-child)::before { content:""; position:absolute; left:10px; top:26px; bottom:2px; width:2px; background:rgba(255,255,255,.12); }
+  .track li.done:not(:last-child)::before { background:var(--ok); }
+  .track li.done, .track li.active { color:var(--text); }
+  .track b { display:block; font-size:15px; }
+  .track small { color:var(--muted); font-size:13px; }
+
+  .toast { position:fixed; left:50%; bottom:calc(18px + env(safe-area-inset-bottom)); transform:translate(-50%,30px); opacity:0; z-index:70;
+    width:max-content; max-width:min(92vw,440px); padding:12px 16px; border-radius:14px; background:rgba(20,26,42,.97); border:1px solid var(--line);
+    color:var(--text); font-size:14px; box-shadow:0 12px 30px rgba(0,0,0,.4); transition:.25s; pointer-events:none; }
+  .toast.show { opacity:1; transform:translate(-50%,0); }
+  .toast.bad { border-color:rgba(248,113,113,.65); }
+  .toast.good { border-color:rgba(52,211,153,.65); }
+  .confetti { position:fixed; inset:0; pointer-events:none; z-index:60; overflow:hidden; }
+  .confetti i { position:absolute; bottom:30%; width:8px; height:14px; border-radius:2px; animation:conf 1.6s cubic-bezier(.2,.7,.3,1) forwards; }
+  @keyframes conf { 0% { transform:translate(0,0) rotate(0); opacity:1; }
+    45% { transform:translate(calc(var(--x) * .6), var(--y)) rotate(calc(var(--r) * .5)); opacity:1; }
+    100% { transform:translate(var(--x), calc(var(--y) + 45vh)) rotate(var(--r)); opacity:0; } }
+  .sr-only { position:absolute; width:1px; height:1px; padding:0; margin:-1px; overflow:hidden; clip:rect(0,0,0,0); white-space:nowrap; border:0; }
+  @media (prefers-reduced-motion: reduce) {
+    *, *::before, *::after { animation-duration:.01ms !important; animation-iteration-count:1 !important; transition-duration:.01ms !important; scroll-behavior:auto !important; }
   }
 </style>
 </head>
 <body>
-<div class="wrap">
-  <header>
-    <h1>App Studio</h1>
-    <p>Build your own app for your TV. Describe it, check it, play it.</p>
-  </header>
-
-  <div class="card" id="pairCard">
-    <h3>Pair your TV</h3>
-    <p class="small">Enter the 6-character code your TV shows.</p>
-    <input id="approveCode" placeholder="CODE" autocomplete="off">
-    <button onclick="approve()">Pair</button>
-    <p id="approveStatus"></p>
-  </div>
-
-  <div class="card" id="describeCard">
-    <h3>Describe your app</h3>
-    <textarea id="desc" placeholder="e.g. A learning quiz for my kids about animals, 2 teams, 45 seconds per question"></textarea>
-    <div class="examples">
-      <button onclick="setDesc('A learning quiz for my kids about animals, 2 teams, 2 rounds of 5 questions, 45 seconds per question')">Kids' animal quiz</button>
-      <button onclick="setDesc('A yoga session for the living room: 6 poses, 30 seconds each, with a short rest between poses')">Yoga session</button>
-      <button onclick="setDesc('A movie trivia game for family game night: 2 teams, 2 rounds of 5 questions about movies, 20 seconds per question')">Family movie trivia</button>
+<header class="top">
+  <div class="top-in">
+    <div class="bar">
+      <div class="brand">
+        <div class="logo" aria-hidden="true">&#9654;</div>
+        <div><h1>App Studio</h1><p>Build your own app for your TV</p></div>
+      </div>
+      <button class="chip" id="tvChip" type="button" onclick="chipTap()" aria-label="TV connection"><span class="dot"></span><span class="txt" id="tvChipText">Pair a TV</span></button>
     </div>
-    <button onclick="plan()">1. Plan it</button>
-    <p class="small">Each build shows whether templates or an AI model wrote it.</p>
+    <ol class="steps" id="steps" aria-label="Progress">
+      <li data-step="pair"><span>1</span>Pair</li>
+      <li data-step="describe"><span>2</span>Describe</li>
+      <li data-step="build"><span>3</span>Build</li>
+      <li data-step="send"><span>4</span>Send</li>
+    </ol>
   </div>
+</header>
 
-  <div class="card" id="planCard" style="display:none">
-    <h3>Plan</h3>
-    <pre id="planText"></pre>
-    <button onclick="build()">2. Build it</button>
-  </div>
-
-  <div class="card" id="buildCard" style="display:none">
-    <h3>Build result <span id="buildPill"></span></h3>
-    <table id="checkTable"></table>
-    <div id="rebuildBox" style="margin-top:10px; display:none">
-      <textarea id="rebuildDesc" style="height:40px"></textarea>
-      <button class="secondary" onclick="rebuild()">Rebuild with a changed description</button>
+<main class="wrap">
+  <section class="card" id="pairCard">
+    <div class="card-h"><div class="ico" aria-hidden="true">&#128250;</div>
+      <div><h2>Pair your TV</h2><p class="small">Open App Studio on your TV and type the 6-character code it shows.</p></div></div>
+    <div class="otp" id="otp" role="group" aria-label="Pairing code">
+      <input aria-label="Character 1 of 6" autocomplete="one-time-code" autocapitalize="characters" autocorrect="off" spellcheck="false" inputmode="text" enterkeyhint="next">
+      <input aria-label="Character 2 of 6" autocomplete="off" autocapitalize="characters" autocorrect="off" spellcheck="false" inputmode="text" enterkeyhint="next">
+      <input aria-label="Character 3 of 6" autocomplete="off" autocapitalize="characters" autocorrect="off" spellcheck="false" inputmode="text" enterkeyhint="next">
+      <input aria-label="Character 4 of 6" autocomplete="off" autocapitalize="characters" autocorrect="off" spellcheck="false" inputmode="text" enterkeyhint="next">
+      <input aria-label="Character 5 of 6" autocomplete="off" autocapitalize="characters" autocorrect="off" spellcheck="false" inputmode="text" enterkeyhint="next">
+      <input aria-label="Character 6 of 6" autocomplete="off" autocapitalize="characters" autocorrect="off" spellcheck="false" inputmode="text" enterkeyhint="done">
     </div>
-  </div>
+    <input id="approveCode" type="hidden">
+    <button class="btn primary" id="pairBtn" type="button" onclick="approve()">Pair</button>
+    <p id="approveStatus" class="status" role="status"></p>
+  </section>
 
-  <div class="card" id="previewCard" style="display:none">
-    <h3>Preview: exactly what the TV will run</h3>
-    <div class="scaled"><iframe id="previewFrame" sandbox="allow-scripts" src="about:blank"></iframe></div>
-    <div>
-      <select id="tvSelect"></select>
-      <button onclick="sendToTv()">3. Send to TV</button>
+  <section class="card slim" id="pairedRow" hidden>
+    <span class="dot" id="pairedDot"></span>
+    <div><b id="pairedName">Living Room TV</b><p class="small" id="pairedSub">Paired</p></div>
+    <button class="link" type="button" onclick="showPair()">Pair another TV</button>
+  </section>
+
+  <section class="card" id="describeCard">
+    <div class="card-h"><div class="ico" aria-hidden="true">&#128161;</div>
+      <div><h2>Describe your app</h2><p class="small">Tap an idea or say it in your own words.</p></div></div>
+    <div class="ideas" id="ideas" aria-label="Ideas"></div>
+    <div class="field" id="descWrap">
+      <textarea id="desc" rows="3" aria-label="Describe your app" placeholder="e.g. A learning quiz for my kids about animals, 2 teams, 45 seconds per question"></textarea>
+      <div class="tools">
+        <button class="icon-btn" id="micBtn" type="button" hidden onclick="toggleMic()" aria-label="Speak your idea">&#127908;</button>
+        <button class="icon-btn" type="button" onclick="surprise()" aria-label="Surprise me with an idea">&#127922;</button>
+      </div>
     </div>
-    <p id="sendStatus"></p>
-  </div>
-</div>
+    <p class="hint" id="micHint" hidden>Listening&hellip; say your idea, then pause.</p>
+    <button class="btn primary" id="planBtn" type="button" onclick="plan()">Plan it</button>
+  </section>
+
+  <section class="card" id="planCard" style="display:none">
+    <h2 class="sr-only">Your plan</h2>
+    <span class="kind" id="planKind"></span>
+    <input class="input title" id="planTitle" maxlength="80" aria-label="App name">
+    <p class="hint">Rename it or tap + and &minus; to adjust. Your TV app follows this plan.</p>
+    <p class="summary" id="planSummary"></p>
+    <div class="meta" id="planMeta"></div>
+    <div class="steppers" id="planSteppers"></div>
+    <div class="flow" id="planFlow" aria-label="Screens"></div>
+    <ul class="controls" id="planControls" aria-label="Remote controls"></ul>
+    <details><summary>Show the plan as JSON</summary><pre id="planText"></pre></details>
+    <button class="btn primary" id="buildBtn" type="button" onclick="build()">Build it</button>
+  </section>
+
+  <section class="card" id="buildCard" style="display:none">
+    <h2 class="sr-only">Build</h2>
+    <div id="buildProgress">
+      <div class="stage" id="stWrite"><span class="st-ico"></span>Writing your app</div>
+      <div class="stage" id="stCheck"><span class="st-ico"></span>Checking it works with a TV remote</div>
+      <div class="stage" id="stPreview"><span class="st-ico"></span>Getting the preview ready</div>
+    </div>
+    <div id="buildResult" hidden>
+      <div class="hero" id="buildHero"><div class="hero-ico" id="heroIco" aria-hidden="true">&#10003;</div>
+        <div><h2 id="heroTitle"></h2><div id="buildPill"></div></div></div>
+      <p class="small" id="checkSummary"></p>
+      <details id="checkDetails"><summary>See every check</summary><table><tbody id="checkTable"></tbody></table></details>
+      <button class="btn ghost" id="editBtn" type="button" hidden onclick="editIdea()">Change my description</button>
+      <div id="rebuildBox" style="display:none">
+        <label class="small" for="rebuildDesc">Want changes? Reword it and rebuild the same app.</label>
+        <textarea id="rebuildDesc" rows="3"></textarea>
+        <button class="btn ghost" id="rebuildBtn" type="button" onclick="rebuild()">Rebuild</button>
+      </div>
+    </div>
+  </section>
+
+  <section class="card" id="previewCard" style="display:none">
+    <div class="card-h"><div class="ico" aria-hidden="true">&#127918;</div>
+      <div><h2>Try it before you send it</h2><p class="small">This is exactly what your TV will run. Use the remote, or swipe and tap the screen.</p></div></div>
+    <div class="tv">
+      <div class="scaled" id="previewBox">
+        <iframe id="previewFrame" sandbox="allow-scripts" src="about:blank" title="App preview" tabindex="-1"></iframe>
+        <div class="touch" id="previewTouch" tabindex="0" role="application" aria-label="App preview. Swipe or use the arrow keys to move, tap or press Enter to select, Escape for Back."></div>
+        <div class="fx" id="previewFx" aria-hidden="true"></div>
+        <div class="fsbar"><button type="button" onclick="key(27)">Back</button><button type="button" onclick="exitFull()">Done</button></div>
+      </div>
+      <div class="stand" aria-hidden="true"></div>
+    </div>
+    <p class="now" id="previewNow" aria-live="polite"></p>
+    <div class="remote" aria-label="Remote">
+      <div class="dpad">
+        <button class="k up" type="button" data-k="38" aria-label="Up">&#9650;</button>
+        <button class="k left" type="button" data-k="37" aria-label="Left">&#9664;</button>
+        <button class="k okk" type="button" data-k="13" aria-label="OK">OK</button>
+        <button class="k right" type="button" data-k="39" aria-label="Right">&#9654;</button>
+        <button class="k down" type="button" data-k="40" aria-label="Down">&#9660;</button>
+      </div>
+      <div class="side">
+        <button class="k" type="button" data-k="27">&#8617; Back</button>
+        <button class="k" type="button" onclick="restartPreview()">&#10227; Restart</button>
+        <button class="k" type="button" id="fsBtn" hidden onclick="enterFull()">&#10530; Full screen</button>
+      </div>
+    </div>
+  </section>
+
+  <section class="card" id="sendCard" style="display:none">
+    <div class="card-h"><div class="ico" aria-hidden="true">&#128640;</div>
+      <div><h2>Send to your TV</h2><p class="small">It appears in My Apps on your TV. Nothing to install.</p></div></div>
+    <div class="tvs" id="tvList" role="radiogroup" aria-label="Choose a TV"></div>
+    <select id="tvSelect" class="sr-only" aria-hidden="true" tabindex="-1"></select>
+    <button class="btn primary big" id="sendBtn" type="button" onclick="sendToTv()">Send to TV</button>
+    <p id="sendStatus" class="status" role="status"></p>
+    <ol class="track" id="track" hidden>
+      <li id="trSent"><span class="st-ico"></span><div><b>Sent</b><small></small></div></li>
+      <li id="trTv"><span class="st-ico"></span><div><b>On your TV</b><small></small></div></li>
+      <li id="trPlay"><span class="st-ico"></span><div><b>Playing</b><small></small></div></li>
+    </ol>
+    <button class="btn ghost" id="afterSend" type="button" hidden onclick="newApp()">Make another app</button>
+  </section>
+</main>
+
+<div class="toast" id="toast" role="status" aria-live="polite"></div>
 
 <script>
-  let appId = null, currentPlan = null;
+  const $ = id => document.getElementById(id);
+  const reduced = window.matchMedia && matchMedia('(prefers-reduced-motion: reduce)').matches;
+  let appId = null, currentPlan = null, tvs = [], serverNow = 0, track = null, planFields = [];
+  let pairing = false, building = false, sending = false;
 
-  function setDesc(t){ document.getElementById('desc').value = t; }
+  const IDEAS = [
+    { em:'\u{1F981}', name:"Kids' animal quiz", tag:'Learning', text:'A learning quiz for my kids about animals, 2 teams, 2 rounds of 5 questions, 45 seconds per question' },
+    { em:'\u{1F3AC}', name:'Family movie trivia', tag:'Game night', text:'A movie trivia game for family game night: 2 teams, 2 rounds of 5 questions about movies, 20 seconds per question' },
+    { em:'\u{1F9D8}', name:'Yoga at home', tag:'Wellness', text:'A yoga session for the living room: 6 poses, 30 seconds each, with a short rest between poses' },
+    { em:'\u{1F525}', name:'HIIT workout', tag:'Fitness', text:'A HIIT workout timer: 8 rounds of 40 seconds' },
+    { em:'\u{1F9E0}', name:'Quiz night', tag:'Trivia', text:'A general knowledge trivia quiz for the family, 3 teams, 2 rounds of 4 questions, 30 seconds per question' }
+  ];
+  const rnd = (a, b) => a + Math.floor(Math.random() * (b - a + 1));
+  const pick = arr => arr[Math.floor(Math.random() * arr.length)];
+  const SURPRISES = [
+    () => `A learning quiz for my kids about animals, ${rnd(2, 3)} teams, ${rnd(2, 3)} rounds of ${rnd(3, 5)} questions, ${pick([30, 45, 60])} seconds per question`,
+    () => `A movie trivia game for family game night: ${rnd(2, 4)} teams, ${rnd(2, 3)} rounds of ${rnd(3, 5)} questions about movies, ${pick([20, 30])} seconds per question`,
+    () => `A yoga session for the living room: ${rnd(5, 8)} poses, ${pick([30, 45, 60])} seconds each, with a short rest between poses`,
+    () => `A HIIT workout timer: ${rnd(6, 10)} rounds of ${pick([30, 40, 45])} seconds`,
+    () => `A general knowledge trivia quiz for the family, ${rnd(2, 4)} teams, ${rnd(2, 3)} rounds of ${rnd(3, 5)} questions, ${pick([20, 30, 45])} seconds per question`
+  ];
+  const CHECK_NAMES = {
+    'size-budget':'Small enough to load fast', 'no-network-calls':'Stays offline, no internet calls', 'no-eval':'No unsafe code',
+    'no-text-inputs':'No typing needed', 'runtime-sdk-present':'Remote support built in', 'back-handled':'The Back button works',
+    'screens-detected':'Has all its screens', 'text-size':'Readable from the couch', 'content-matches-plan':'Matches your plan'
+  };
+  const SCREEN_NAMES = { title:'Title', teams:'Teams', question:'Question', reveal:'Answer', 'round-scores':'Round scores',
+    'final-scores':'Final scores', work:'Work', rest:'Rest', done:'Done' };
+  const LIVE_SCREENS = { title:'Title screen', question:'Question', reveal:'Answer', final:'Final scores', run:'In progress', done:'Finished' };
+  const KEY_FX = { 38:'\u25B2', 40:'\u25BC', 37:'\u25C0', 39:'\u25B6', 13:'\u25CF', 27:'\u21A9' };
+
+  function esc(s){ return String(s == null ? '' : s).replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'})[c]); }
+  const wait = ms => new Promise(r => setTimeout(r, ms));
+  function buzz(p){ try { if (navigator.vibrate) navigator.vibrate(p); } catch (e) {} }
+  let toastTimer = null;
+  function toast(msg, kind){
+    const t = $('toast'); t.textContent = msg; t.className = 'toast show' + (kind ? ' ' + kind : '');
+    clearTimeout(toastTimer); toastTimer = setTimeout(() => { t.className = 'toast' + (kind ? ' ' + kind : ''); }, 3000);
+  }
+  function netFail(){ toast("Can't reach App Studio. Check that the server is still running.", 'bad'); }
+  function shake(el){ el.classList.remove('shake'); void el.offsetWidth; el.classList.add('shake'); }
+  function bump(el){ el.classList.remove('bump'); void el.offsetWidth; el.classList.add('bump'); }
+  function visible(el){ return el && !el.hidden && el.style.display !== 'none'; }
+  function goTo(id){ const el = $(id); if (visible(el)) el.scrollIntoView({ behavior: reduced ? 'auto' : 'smooth', block:'start' }); }
+  function busy(btn, label){
+    if (btn.dataset.label === undefined) btn.dataset.label = btn.innerHTML;
+    btn.disabled = true; btn.innerHTML = '<span class="spin"></span>' + esc(label);
+  }
+  function idle(btn){
+    btn.disabled = false;
+    if (btn.dataset.label !== undefined) { btn.innerHTML = btn.dataset.label; delete btn.dataset.label; }
+  }
+  async function api(path, body){
+    const opt = body === undefined ? {} : { method:'POST', headers:{ 'Content-Type':'application/json' }, body: JSON.stringify(body) };
+    const r = await fetch(path, opt);
+    let data = {};
+    try { data = await r.json(); } catch (e) {}
+    return { ok: r.ok, status: r.status, data };
+  }
+
+  function updateSteps(){
+    const state = { pair: tvs.length > 0, describe: !!currentPlan, build: !!appId, send: !!(track && track.sent) };
+    let activeSet = false;
+    document.querySelectorAll('#steps li').forEach(li => {
+      const done = state[li.dataset.step];
+      const active = !done && !activeSet;
+      if (active) activeSet = true;
+      li.classList.toggle('done', done); li.classList.toggle('active', active);
+      if (active) li.setAttribute('aria-current', 'step'); else li.removeAttribute('aria-current');
+    });
+  }
+  document.querySelectorAll('#steps li').forEach(li => li.addEventListener('click', () => {
+    const k = li.dataset.step;
+    if (k === 'pair') { if (!tvs.length) showPair(); goTo(visible($('pairCard')) ? 'pairCard' : 'pairedRow'); }
+    if (k === 'describe') goTo('describeCard');
+    if (k === 'build') goTo(visible($('buildCard')) ? 'buildCard' : 'planCard');
+    if (k === 'send') goTo('sendCard');
+  }));
+
+  function ago(ms){
+    const s = Math.max(0, Math.round(ms / 1000));
+    if (s < 60) return 'just now';
+    if (s < 3600) return Math.round(s / 60) + ' min ago';
+    return Math.round(s / 3600) + ' h ago';
+  }
+  function tvName(id){ const t = tvs.find(x => x.id === id); return t ? t.name : 'your TV'; }
+  async function refreshTvs(prefer){
+    let data;
+    try { const r = await fetch('/v1/tvs'); data = await r.json(); }
+    catch (e) { const c = $('tvChip'); c.className = 'chip offline'; $('tvChipText').textContent = 'Server offline'; return tvs; }
+    serverNow = data.now || Date.now();
+    tvs = (data.tvs || []).slice().sort((a, b) => (b.lastSeenAt || 0) - (a.lastSeenAt || 0));
+    const sel = $('tvSelect');
+    const keep = prefer || sel.value;
+    sel.innerHTML = tvs.map(t => '<option value="' + esc(t.id) + '">' + esc(t.name) + '</option>').join('');
+    if (keep && tvs.some(t => t.id === keep)) sel.value = keep;
+    else if (tvs.length) sel.value = tvs[0].id;
+    renderTvList(); renderChip(); updateSteps();
+    return tvs;
+  }
+  function tvState(t){
+    if (t.online) return 'On now';
+    return t.lastSeenAt ? 'Off \u00B7 seen ' + ago(serverNow - t.lastSeenAt) : 'Not seen yet';
+  }
+  function renderChip(){
+    const t = tvs.find(x => x.id === $('tvSelect').value);
+    const c = $('tvChip');
+    if (!t) { c.className = 'chip'; $('tvChipText').textContent = 'Pair a TV'; return; }
+    c.className = 'chip ' + (t.online ? 'online' : 'offline');
+    $('tvChipText').textContent = t.name + (t.online ? '' : ' \u00B7 off');
+    $('pairedName').textContent = t.name;
+    $('pairedSub').textContent = (t.online ? 'Paired \u00B7 on now' : 'Paired \u00B7 turn on App Studio on your TV') + (tvs.length > 1 ? ' \u00B7 ' + tvs.length + ' TVs' : '');
+    $('pairedDot').parentElement.className = 'card slim ' + (t.online ? 'online' : 'offline');
+  }
+  let tvListSig = '';
+  function renderTvList(){
+    const box = $('tvList'), sel = $('tvSelect');
+    const sig = JSON.stringify([sel.value, tvs.map(t => [t.id, t.name, t.online, tvState(t)])]);
+    if (sig === tvListSig && box.childElementCount) return;
+    tvListSig = sig;
+    if (!tvs.length) {
+      box.innerHTML = '<div class="notv">No TV paired yet. <button class="link" type="button" onclick="showPair();goTo(\'pairCard\')">Pair a TV</button></div>';
+      return;
+    }
+    box.innerHTML = tvs.map(t => '<button type="button" role="radio" class="tvopt ' + (t.online ? 'online' : 'offline') + '" aria-checked="' + (t.id === sel.value) +
+      '" data-id="' + esc(t.id) + '"><span class="tvi" aria-hidden="true">\u{1F4FA}</span><span><b>' + esc(t.name) + '</b><small>\u2026' +
+      esc(t.id.slice(-4)) + '</small></span><span class="st"><span class="dot"></span>' + esc(tvState(t)) + '</span></button>').join('');
+    box.querySelectorAll('.tvopt').forEach(b => b.addEventListener('click', () => { sel.value = b.dataset.id; buzz(6); renderTvList(); renderChip(); }));
+  }
+  function chipTap(){
+    if (!tvs.length) { showPair(); goTo('pairCard'); return; }
+    goTo(visible($('sendCard')) ? 'sendCard' : 'pairedRow');
+  }
+
+  const otpBoxes = Array.from(document.querySelectorAll('#otp input'));
+  const clean = s => String(s || '').toUpperCase().replace(/[^A-Z0-9]/g, '');
+  function otpValue(){ return otpBoxes.map(b => b.value).join(''); }
+  function setOtp(str){
+    const s = clean(str).slice(0, 6);
+    otpBoxes.forEach((b, i) => { b.value = s[i] || ''; b.classList.toggle('filled', !!b.value); });
+    $('approveCode').value = s;
+    return s;
+  }
+  function otpChanged(){
+    $('approveCode').value = otpValue();
+    $('approveStatus').textContent = ''; $('approveStatus').className = 'status';
+    $('otp').classList.remove('ok');
+    if (otpValue().length === 6) approve();
+  }
+  otpBoxes.forEach((b, i) => {
+    b.addEventListener('input', () => {
+      const v = clean(b.value);
+      if (v.length > 1) { const s = setOtp(otpValue().slice(0, i) + v + otpValue().slice(i + v.length)); otpBoxes[Math.min(s.length, 5)].focus(); }
+      else { b.value = v; b.classList.toggle('filled', !!v); if (v && i < 5) otpBoxes[i + 1].focus(); }
+      otpChanged();
+    });
+    b.addEventListener('keydown', e => {
+      if (e.key === 'Backspace' && !b.value && i > 0) { e.preventDefault(); otpBoxes[i - 1].value = ''; otpBoxes[i - 1].classList.remove('filled'); otpBoxes[i - 1].focus(); otpChanged(); }
+      else if (e.key === 'ArrowLeft' && i > 0) otpBoxes[i - 1].focus();
+      else if (e.key === 'ArrowRight' && i < 5) otpBoxes[i + 1].focus();
+      else if (e.key === 'Enter') approve();
+    });
+    b.addEventListener('paste', e => {
+      const t = (e.clipboardData || window.clipboardData).getData('text');
+      if (!t) return;
+      e.preventDefault();
+      const s = setOtp(t);
+      otpBoxes[Math.min(s.length, 5)].focus();
+      otpChanged();
+    });
+    b.addEventListener('focus', () => b.select());
+  });
+
+  async function approve(){
+    if (pairing) return;
+    const code = clean(otpValue() || $('approveCode').value);
+    const st = $('approveStatus');
+    if (code.length !== 6) { shake($('otp')); st.textContent = 'Enter all 6 characters from your TV.'; st.className = 'status bad'; return; }
+    pairing = true; busy($('pairBtn'), 'Pairing\u2026');
+    try {
+      const { ok, status, data } = await api('/v1/device/approve', { code });
+      st.textContent = ok ? 'Paired. Your TV is ready.'
+        : status === 404 ? "That code didn't match. Check the code on your TV and try again."
+        : status === 410 ? 'That code expired. Your TV will show a new one.'
+        : 'Error: ' + (data.error || status);
+      st.className = ok ? 'status paired' : 'status bad';
+      if (ok) {
+        $('otp').classList.add('ok'); buzz([10, 40, 10]);
+        await refreshTvs(data.tvId);
+        setTimeout(() => { collapsePair(); goTo('describeCard'); }, reduced ? 300 : 1100);
+      } else { shake($('otp')); buzz(80); }
+    } catch (e) { netFail(); }
+    finally { pairing = false; idle($('pairBtn')); }
+  }
+  function collapsePair(){ $('pairCard').hidden = true; $('pairedRow').hidden = false; renderChip(); }
+  function showPair(){
+    $('pairedRow').hidden = true; $('pairCard').hidden = false;
+    setOtp(''); $('otp').classList.remove('ok');
+    $('approveStatus').textContent = ''; $('approveStatus').className = 'status';
+    setTimeout(() => otpBoxes[0].focus({ preventScroll:true }), 50);
+  }
+
+  function renderIdeas(){
+    $('ideas').innerHTML = IDEAS.map((d, i) => '<button type="button" class="idea" data-i="' + i + '"><span class="em" aria-hidden="true">' + d.em +
+      '</span><b>' + esc(d.name) + '</b><small>' + esc(d.tag) + '</small></button>').join('');
+    $('ideas').querySelectorAll('.idea').forEach(b => b.addEventListener('click', () => {
+      document.querySelectorAll('.idea.sel').forEach(x => x.classList.remove('sel'));
+      b.classList.add('sel'); buzz(6);
+      typeInto(IDEAS[Number(b.dataset.i)].text);
+    }));
+  }
+  let typing = null;
+  function typeInto(text){
+    clearInterval(typing);
+    const el = $('desc');
+    const done = () => { el.value = text; autoGrow(); const pb = $('planBtn'); pb.classList.remove('pulse'); void pb.offsetWidth; pb.classList.add('pulse'); };
+    if (reduced) return done();
+    let i = 0; const step = Math.max(1, Math.round(text.length / 40));
+    typing = setInterval(() => { i += step; el.value = text.slice(0, i); autoGrow(); if (i >= text.length) { clearInterval(typing); done(); } }, 16);
+  }
+  function surprise(){ document.querySelectorAll('.idea.sel').forEach(x => x.classList.remove('sel')); buzz(6); typeInto(pick(SURPRISES)()); }
+  function setDesc(t){ $('desc').value = t; autoGrow(); }
+  function autoGrow(){ const el = $('desc'); el.style.height = 'auto'; el.style.height = Math.min(Math.max(el.scrollHeight, 104), 240) + 'px'; }
+  $('desc').addEventListener('input', () => { clearInterval(typing); autoGrow(); });
+
+  const SR = window.SpeechRecognition || window.webkitSpeechRecognition;
+  let rec = null, listening = false;
+  function toggleMic(){
+    if (!SR) return;
+    if (listening && rec) { rec.stop(); return; }
+    rec = new SR();
+    rec.lang = navigator.language || 'en-US'; rec.interimResults = true; rec.continuous = false;
+    const base = $('desc').value.trim();
+    rec.onresult = e => {
+      let t = '';
+      for (let i = 0; i < e.results.length; i++) t += e.results[i][0].transcript;
+      $('desc').value = (base ? base + ' ' : '') + t.trim(); autoGrow();
+    };
+    rec.onerror = e => toast(e.error === 'not-allowed' || e.error === 'service-not-allowed' ? 'Microphone access is blocked for this page.' : "Didn't catch that. Try again.", 'bad');
+    rec.onend = () => { listening = false; $('micBtn').classList.remove('live'); $('micHint').hidden = true; $('micBtn').setAttribute('aria-label', 'Speak your idea'); };
+    try {
+      rec.start(); listening = true; buzz(10);
+      $('micBtn').classList.add('live'); $('micHint').hidden = false; $('micBtn').setAttribute('aria-label', 'Stop listening');
+    } catch (e) { listening = false; toast('The microphone is not available right now.', 'bad'); }
+  }
+
+  function kindInfo(p){
+    if (p.kind === 'timer') return p.settings.style === 'yoga' ? ['\u{1F9D8}', 'Yoga session'] : ['\u23F1\uFE0F', 'Interval timer'];
+    return /learning quiz/i.test(p.title) ? ['\u{1F9E0}', 'Learning quiz'] : ['\u{1F3AF}', 'Trivia game'];
+  }
+  function fieldsFor(p){
+    if (p.kind === 'trivia') return [
+      { k:'teams', label:'Teams', min:1, max:8, step:1 },
+      { k:'rounds', label:'Rounds', min:1, max:10, step:1 },
+      { k:'questionsPerRound', label:'Questions per round', min:1, max:20, step:1 },
+      { k:'secondsPerQuestion', label:'Seconds per question', min:5, max:120, step:5, sec:true }
+    ];
+    const yoga = p.settings.style === 'yoga';
+    return [
+      { k:'rounds', label: yoga ? 'Poses' : 'Rounds', min:1, max:50, step:1 },
+      { k:'workSeconds', label: yoga ? 'Time per pose' : 'Work time', min:5, max:600, step:5, sec:true },
+      { k:'restSeconds', label: yoga ? 'Time to switch' : 'Rest time', min:0, max:600, step:5, sec:true }
+    ];
+  }
+  function fmt(f, v){
+    if (!f.sec) return String(v);
+    if (v < 60) return v + 's';
+    return v % 60 ? Math.floor(v / 60) + 'm ' + (v % 60) + 's' : (v / 60) + ' min';
+  }
+  function minutes(p){
+    const s = p.settings;
+    const sec = p.kind === 'trivia'
+      ? s.rounds * s.questionsPerRound * (s.secondsPerQuestion + 6) + s.rounds * 10 + 20
+      : s.rounds * (s.workSeconds + s.restSeconds);
+    return Math.max(1, Math.round(sec / 60));
+  }
+  function summaryFor(p){
+    const s = p.settings, pl = (n, w) => n + ' ' + w + (n === 1 ? '' : 's');
+    if (p.kind === 'trivia') {
+      const q = s.rounds * s.questionsPerRound, topic = (p.content && p.content.topic) || 'general knowledge';
+      return `${s.teams} ${s.teams === 1 ? 'team answers' : 'teams answer'} ${q} ${topic} question${q === 1 ? '' : 's'} across ${pl(s.rounds, 'round')} of ${s.questionsPerRound}, ${s.secondsPerQuestion}s per question. Pick an answer with the D-pad and press OK.`;
+    }
+    if (s.style === 'yoga') return `A guided yoga session: ${pl(s.rounds, 'pose')}, ${s.workSeconds}s each with ${s.restSeconds}s to switch. Pause and resume with the remote.`;
+    return `An interval timer: ${pl(s.rounds, 'round')}, ${s.workSeconds}s work / ${s.restSeconds}s rest. Pause and resume with the remote.`;
+  }
+  function renderMeta(){
+    const p = currentPlan, s = p.settings, yoga = s.style === 'yoga';
+    const items = ['\u23F1 About ' + minutes(p) + ' min'];
+    if (p.kind === 'trivia') items.push('\u2753 ' + s.rounds * s.questionsPerRound + ' questions', '\u{1F465} ' + s.teams + (s.teams === 1 ? ' team' : ' teams'));
+    else items.push((yoga ? '\u{1F9D8} ' : '\u{1F501} ') + s.rounds + (yoga ? ' poses' : ' rounds'));
+    $('planMeta').innerHTML = items.map(t => '<span>' + esc(t) + '</span>').join('');
+    $('planSummary').textContent = p.summary;
+    $('planText').textContent = JSON.stringify(p, null, 2);
+  }
+  function renderPlan(){
+    const p = currentPlan, [em, label] = kindInfo(p), yoga = p.settings.style === 'yoga';
+    $('planKind').textContent = em + ' ' + label;
+    $('planTitle').value = p.title;
+    planFields = fieldsFor(p);
+    $('planSteppers').innerHTML = planFields.map(f => '<div class="stepper"><span class="lbl" id="lbl-' + f.k + '">' + esc(f.label) +
+      '</span><div class="ctl"><button type="button" data-k="' + f.k + '" data-d="-1" aria-label="Less: ' + esc(f.label) + '">\u2212</button><output id="out-' + f.k +
+      '" aria-labelledby="lbl-' + f.k + '" aria-live="polite">' + esc(fmt(f, p.settings[f.k])) + '</output><button type="button" data-k="' + f.k +
+      '" data-d="1" aria-label="More: ' + esc(f.label) + '">+</button></div></div>').join('');
+    const main = (p.screens || []).filter(s => s !== 'pause');
+    $('planFlow').innerHTML = main.map(s => '<span>' + esc(s === 'work' && yoga ? 'Pose' : (SCREEN_NAMES[s] || s)) + '</span>').join('<i>\u203A</i>') +
+      ((p.screens || []).includes('pause') ? '<i>+</i><span>Pause menu</span>' : '');
+    const c = p.controls || {};
+    $('planControls').innerHTML = [['D-pad', c.dpad], ['OK', c.select], ['Back', c.back]].filter(r => r[1])
+      .map(r => '<li><kbd>' + esc(r[0]) + '</kbd>' + esc(r[1]) + '</li>').join('');
+    renderMeta();
+    $('buildBtn').textContent = 'Build it';
+  }
+  function planEdited(){
+    currentPlan.summary = summaryFor(currentPlan);
+    renderMeta();
+    if (appId) $('buildBtn').textContent = 'Build again with these changes';
+  }
+  function stepField(k, d){
+    const f = planFields.find(x => x.k === k);
+    if (!f || !currentPlan) return false;
+    const s = currentPlan.settings, v = Math.min(f.max, Math.max(f.min, (Number(s[k]) || 0) + d * f.step));
+    const out = $('out-' + k);
+    if (v === s[k]) { shake(out); return false; }
+    s[k] = v;
+    if (currentPlan.kind === 'trivia') currentPlan.content.questions = s.rounds * s.questionsPerRound;
+    out.textContent = fmt(f, v); bump(out); buzz(5);
+    planEdited();
+    return true;
+  }
+  let holdTimer = null, holdRepeat = null;
+  function stopHold(){ clearTimeout(holdTimer); clearInterval(holdRepeat); holdTimer = holdRepeat = null; }
+  $('planSteppers').addEventListener('pointerdown', e => {
+    const b = e.target.closest('button[data-k]'); if (!b) return;
+    e.preventDefault();
+    const k = b.dataset.k, d = Number(b.dataset.d);
+    stepField(k, d);
+    stopHold();
+    holdTimer = setTimeout(() => { holdRepeat = setInterval(() => { if (!stepField(k, d)) stopHold(); }, 90); }, 420);
+  });
+  ['pointerup', 'pointerleave', 'pointercancel'].forEach(ev => $('planSteppers').addEventListener(ev, stopHold));
+  $('planSteppers').addEventListener('click', e => {
+    const b = e.target.closest('button[data-k]'); if (!b || e.detail > 0) return;
+    stepField(b.dataset.k, Number(b.dataset.d));
+  });
+  $('planTitle').addEventListener('input', () => {
+    if (!currentPlan) return;
+    currentPlan.title = $('planTitle').value;
+    $('planText').textContent = JSON.stringify(currentPlan, null, 2);
+    if (appId) $('buildBtn').textContent = 'Build again with these changes';
+  });
 
   async function plan(){
-    const description = document.getElementById('desc').value.trim();
-    if (!description) return alert('type a description first');
-    const r = await fetch('/v1/plans', { method:'POST', headers:{'Content-Type':'application/json'}, body: JSON.stringify({ description }) });
-    const data = await r.json();
-    currentPlan = data.plan;
-    document.getElementById('planText').textContent = JSON.stringify(data.plan, null, 2);
-    document.getElementById('planCard').style.display = 'block';
+    if (building) return;
+    const description = $('desc').value.trim();
+    if (!description) { shake($('descWrap')); toast('Describe your app first, or tap an idea above.'); $('desc').focus(); return; }
+    const btn = $('planBtn'); busy(btn, 'Planning\u2026');
+    try {
+      const { ok, data } = await api('/v1/plans', { description });
+      if (!ok) { toast(data.error || 'Could not plan that. Try rewording it.', 'bad'); return; }
+      resetAfter();
+      currentPlan = data.plan;
+      renderPlan();
+      $('planCard').style.display = 'block';
+      updateSteps();
+      setTimeout(() => goTo('planCard'), 60);
+    } catch (e) { netFail(); }
+    finally { idle(btn); }
+  }
+  function resetAfter(){
+    stopTracking(); appId = null;
+    ['buildCard', 'previewCard', 'sendCard'].forEach(id => { $(id).style.display = 'none'; });
+    $('previewFrame').src = 'about:blank';
   }
 
+  function stage(id, state){ $(id).className = 'stage' + (state ? ' ' + state : ''); }
   async function build(){
-    const description = document.getElementById('desc').value.trim();
-    const r = await fetch('/v1/apps', { method:'POST', headers:{'Content-Type':'application/json'}, body: JSON.stringify({ description, plan: currentPlan }) });
-    const data = await r.json();
-    renderBuildResult(data);
-    if (r.ok) {
-      appId = data.appId;
-      await loadPreview();
-      await refreshTvs();
-      document.getElementById('rebuildBox').style.display = 'block';
-      document.getElementById('rebuildDesc').value = description;
+    if (building) return;
+    if (!currentPlan) { toast('Plan your app first.'); goTo('describeCard'); return; }
+    const description = $('desc').value.trim();
+    building = true;
+    const btn = $('buildBtn'); busy(btn, 'Building\u2026');
+    stopTracking(); appId = null; updateSteps();
+    ['previewCard', 'sendCard'].forEach(id => { $(id).style.display = 'none'; });
+    $('buildResult').hidden = true; $('buildProgress').hidden = false;
+    ['stWrite', 'stCheck', 'stPreview'].forEach(id => stage(id, ''));
+    $('buildCard').style.display = 'block';
+    goTo('buildCard');
+    stage('stWrite', 'active');
+    try {
+      const t0 = Date.now();
+      const res = await api('/v1/apps', { description, plan: currentPlan });
+      await wait(Math.max(0, (reduced ? 0 : 450) - (Date.now() - t0)));
+      const report = res.data && res.data.report, passed = !!(report && report.passed);
+      stage('stWrite', report ? 'done' : 'bad');
+      if (report) { stage('stCheck', 'active'); await wait(reduced ? 0 : 420); stage('stCheck', passed ? 'done' : 'bad'); }
+      renderBuildResult(res.data || {});
+      if (res.ok) {
+        appId = res.data.appId;
+        stage('stPreview', 'active');
+        await loadPreview();
+        stage('stPreview', 'done');
+        await refreshTvs();
+        $('rebuildBox').style.display = 'block';
+        $('rebuildDesc').value = description;
+        showSend();
+        buzz([10, 30, 10]);
+        setTimeout(() => goTo('previewCard'), reduced ? 0 : 650);
+      } else { buzz(80); }
+    } catch (e) {
+      ['stWrite', 'stCheck', 'stPreview'].forEach(id => { if ($(id).classList.contains('active')) stage(id, 'bad'); });
+      netFail();
+    } finally {
+      updateSteps();
+      building = false; idle(btn);
+      btn.textContent = 'Build it';
     }
   }
-
-  async function rebuild(){
-    const description = document.getElementById('rebuildDesc').value.trim();
-    const r = await fetch('/v1/apps/' + appId + '/rebuild', { method:'POST', headers:{'Content-Type':'application/json'}, body: JSON.stringify({ description }) });
-    const data = await r.json();
-    renderBuildResult(data);
-    if (r.ok) await loadPreview();
-  }
-
   function renderBuildResult(data){
-    document.getElementById('buildCard').style.display = 'block';
-    const pill = document.getElementById('buildPill');
-    const passed = data.report && data.report.passed;
+    $('buildCard').style.display = 'block';
+    $('buildResult').hidden = false;
+    const report = data.report, passed = !!(report && report.passed);
+    const pill = $('buildPill');
     pill.innerHTML = '<span class="pill ' + (passed ? 'ready' : 'failed') + '">' + (passed ? 'READY' : 'FAILED') + '</span>';
     if (data.writer) {
       const w = document.createElement('span');
-      w.style.cssText = 'font-size:12px;color:#5a6470;font-weight:400';
+      w.className = 'writer';
       w.textContent = data.writer === 'templates' ? 'written from templates' : ('written by ' + data.writer.replace(/^model:/, '') + (data.attempts > 1 ? ' (repaired once)' : ''));
       pill.appendChild(w);
     }
-    const tbl = document.getElementById('checkTable');
-    tbl.innerHTML = '<tr><th>Check</th><th>Result</th><th>Detail</th></tr>' +
-      (data.report ? data.report.checks.map(c =>
-        '<tr><td>' + esc(c.name) + '</td><td class="' + (c.ok?'ok':'bad') + '">' + (c.ok?'pass':'FAIL') + '</td><td>' + esc(c.detail) + '</td></tr>'
-      ).join('') : '<tr><td colspan=3>' + esc(data.error||'error') + '</td></tr>');
+    $('buildHero').classList.toggle('fail', !passed);
+    $('heroIco').textContent = passed ? '\u2713' : '!';
+    $('heroTitle').textContent = passed ? (((data.plan && data.plan.title) || 'Your app') + ' is ready') : (report ? 'Not ready yet' : 'Something went wrong');
+    const checks = report ? report.checks.slice().sort((a, b) => (a.ok ? 1 : 0) - (b.ok ? 1 : 0)) : [];
+    const failed = checks.filter(c => !c.ok).length;
+    $('checkSummary').textContent = !report ? (data.error || 'The app writer is unavailable.')
+      : passed ? 'All ' + checks.length + ' TV checks passed.'
+      : failed + ' of ' + checks.length + ' checks need a fix. Change the description and build again.';
+    $('checkTable').innerHTML = checks.map((c, i) => '<tr class="row" style="animation-delay:' + (reduced ? 0 : i * 55) + 'ms"><td class="ic ' +
+      (c.ok ? 'ok' : 'bad-t') + '">' + (c.ok ? '\u2713' : '\u2715') + '</td><td>' + esc(CHECK_NAMES[c.name] || c.name) + '<small>' + esc(c.detail) + '</small></td></tr>').join('');
+    $('checkDetails').open = !passed;
+    $('editBtn').hidden = passed;
   }
-  function esc(s){ return String(s == null ? '' : s).replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'})[c]); }
+  function editIdea(){ goTo('describeCard'); setTimeout(() => $('desc').focus({ preventScroll:true }), 400); }
+
+  async function rebuild(){
+    const description = $('rebuildDesc').value.trim();
+    if (!description || !appId) { shake($('rebuildDesc')); return; }
+    const btn = $('rebuildBtn'); busy(btn, 'Rebuilding\u2026');
+    try {
+      const res = await api('/v1/apps/' + encodeURIComponent(appId) + '/rebuild', { description });
+      renderBuildResult(res.data);
+      if (res.ok) {
+        await loadPreview();
+        stopTracking(); resetSendUi(); updateSteps();
+        toast('Rebuilt. Send it to your TV again to update it there.', 'good');
+        goTo('previewCard');
+      }
+    } catch (e) { netFail(); }
+    finally { idle(btn); }
+  }
 
   async function loadPreview(){
-    const r = await fetch('/v1/apps/' + appId + '/preview-link', { method:'POST' });
-    const data = await r.json();
-    if (data.url) {
-      document.getElementById('previewCard').style.display = 'block';
-      document.getElementById('previewFrame').src = data.url;
-      fitPreview();
+    const { ok, data } = await api('/v1/apps/' + encodeURIComponent(appId) + '/preview-link', {});
+    if (ok && data.url) {
+      $('previewCard').style.display = 'block';
+      $('previewFrame').src = data.url;
+      $('previewNow').textContent = 'Loading the preview\u2026';
+      fitPreview(); requestAnimationFrame(fitPreview);
     }
   }
-
+  async function restartPreview(){ if (!appId) return; buzz(6); try { await loadPreview(); } catch (e) { netFail(); } }
   function fitPreview(){
-    const box = document.querySelector('.scaled');
+    const box = document.querySelector('.scaled'), fr = $('previewFrame');
     if (!box || !box.clientWidth) return;
-    document.getElementById('previewFrame').style.transform = 'scale(' + (box.clientWidth / 1920) + ')';
+    const s = box.clientHeight ? Math.min(box.clientWidth / 1920, box.clientHeight / 1080) : box.clientWidth / 1920;
+    fr.style.transform = 'scale(' + s + ')';
+    fr.style.left = Math.max(0, (box.clientWidth - 1920 * s) / 2) + 'px';
+    fr.style.top = Math.max(0, (box.clientHeight - 1080 * s) / 2) + 'px';
   }
   window.addEventListener('resize', fitPreview);
+  if (window.ResizeObserver) new ResizeObserver(fitPreview).observe($('previewBox'));
 
-  async function refreshTvs(){
-    const r = await fetch('/v1/tvs');
-    const data = await r.json();
-    const sel = document.getElementById('tvSelect');
-    sel.innerHTML = data.tvs.map(t => '<option value="' + esc(t.id) + '">' + esc(t.name) + '</option>').join('');
+  function key(code){
+    const fr = $('previewFrame');
+    if (!fr.contentWindow || fr.getAttribute('src') === 'about:blank') return;
+    fr.contentWindow.postMessage({ type:'key', keyCode: code }, '*');
+    buzz(8);
+    const fx = $('previewFx'); fx.textContent = KEY_FX[code] || ''; fx.classList.remove('show'); void fx.offsetWidth; fx.classList.add('show');
   }
+  document.querySelectorAll('.remote [data-k]').forEach(b => b.addEventListener('click', () => {
+    key(Number(b.dataset.k)); b.classList.remove('hit'); void b.offsetWidth; b.classList.add('hit');
+  }));
+  const touch = $('previewTouch');
+  let swipe = null;
+  touch.addEventListener('pointerdown', e => {
+    swipe = { x: e.clientX, y: e.clientY };
+    try { touch.setPointerCapture(e.pointerId); } catch (err) {}
+    touch.focus({ preventScroll:true });
+  });
+  touch.addEventListener('pointerup', e => {
+    if (!swipe) return;
+    const dx = e.clientX - swipe.x, dy = e.clientY - swipe.y;
+    swipe = null;
+    if (Math.max(Math.abs(dx), Math.abs(dy)) < 16) key(13);
+    else if (Math.abs(dx) > Math.abs(dy)) key(dx > 0 ? 39 : 37);
+    else key(dy > 0 ? 40 : 38);
+  });
+  touch.addEventListener('pointercancel', () => { swipe = null; });
+  touch.addEventListener('keydown', e => {
+    const k = { ArrowUp:38, ArrowDown:40, ArrowLeft:37, ArrowRight:39, Enter:13, ' ':13, Escape:27, Backspace:27 }[e.key];
+    if (k) { e.preventDefault(); key(k); }
+  });
+  window.addEventListener('message', e => {
+    const fr = $('previewFrame');
+    if (!fr || e.source !== fr.contentWindow) return;
+    const m = e.data || {};
+    if (m.type === 'view') {
+      const id = String(m.screen || '').replace(/^s-/, '');
+      const parts = [];
+      if (m.paused) parts.push('\u23F8 Paused');
+      else if (id) parts.push('\u{1F4FA} ' + (LIVE_SCREENS[id] || id));
+      if (m.focused) parts.push('\u25B8 ' + String(m.focused).slice(0, 42));
+      $('previewNow').textContent = parts.join('   ');
+    } else if (m.type === 'exit') {
+      $('previewNow').textContent = 'The app closed, just like it would on your TV. Tap Restart to play again.';
+    } else if (m.type === 'error') {
+      $('previewNow').textContent = 'The app hit an error: ' + String(m.message || '').slice(0, 80);
+    }
+  });
+  function enterFull(){
+    const b = $('previewBox'), req = b.requestFullscreen || b.webkitRequestFullscreen;
+    if (!req) return;
+    Promise.resolve(req.call(b)).then(() => {
+      try { screen.orientation.lock('landscape').catch(() => {}); } catch (e) {}
+      touch.focus({ preventScroll:true });
+    }).catch(() => toast('Full screen is not available here.'));
+  }
+  function exitFull(){
+    const ex = document.exitFullscreen || document.webkitExitFullscreen;
+    if ((document.fullscreenElement || document.webkitFullscreenElement) && ex) ex.call(document);
+  }
+  ['fullscreenchange', 'webkitfullscreenchange'].forEach(ev => document.addEventListener(ev, () => setTimeout(fitPreview, 60)));
+  if (document.fullscreenEnabled || document.webkitFullscreenEnabled) $('fsBtn').hidden = false;
 
+  function showSend(){ $('sendCard').style.display = 'block'; resetSendUi(); renderTvList(); }
+  function resetSendUi(){
+    $('track').hidden = true; $('afterSend').hidden = true;
+    $('sendStatus').textContent = ''; $('sendStatus').className = 'status';
+  }
+  function setTrack(id, state, sub){ const li = $(id); li.className = state || ''; li.querySelector('small').textContent = sub; }
   async function sendToTv(){
-    const tvId = document.getElementById('tvSelect').value;
-    if (!tvId) { document.getElementById('sendStatus').textContent = 'No paired TV yet. Pair one above first.'; return; }
-    const r = await fetch('/v1/send', { method:'POST', headers:{'Content-Type':'application/json'}, body: JSON.stringify({ appId, tvId }) });
-    const data = await r.json();
-    document.getElementById('sendStatus').textContent = r.ok ? 'Sent. It\'s in My Apps on your TV, ready whenever you are.' : ('Error: ' + data.error);
+    if (sending) return;
+    const tvId = $('tvSelect').value, st = $('sendStatus');
+    renderTvList(); renderChip();
+    if (!appId) { toast('Build your app first.'); return; }
+    if (!tvId) { st.textContent = 'No paired TV yet. Pair one above first.'; st.className = 'status bad'; showPair(); goTo('pairCard'); return; }
+    sending = true;
+    const btn = $('sendBtn'); busy(btn, 'Sending\u2026');
+    let res = null;
+    try { res = await api('/v1/send', { appId, tvId }); } catch (e) { netFail(); }
+    sending = false; idle(btn);
+    if (!res) return;
+    st.textContent = res.ok ? "Sent. It's in My Apps on your TV, ready whenever you are." : ('Error: ' + (res.data.error || res.status));
+    st.className = res.ok ? 'status paired' : 'status bad';
+    if (!res.ok) { buzz(80); return; }
+    buzz([12, 40, 12]);
+    btn.classList.add('sent'); btn.textContent = '\u2713 Sent';
+    setTimeout(() => { btn.classList.remove('sent'); btn.textContent = 'Send to TV'; }, 1500);
+    startTracking(tvId, appId, res.data.deliveredAt || 0, res.data.title);
+    $('afterSend').hidden = false;
+  }
+  function startTracking(tvId, aid, deliveredAt, title){
+    stopTracking();
+    const t = { tvId, aid, deliveredAt, title: title || 'Your app', sent: true, tvSeen: false, started: Date.now(), timer: null };
+    track = t;
+    $('track').hidden = false;
+    setTrack('trSent', 'done', 'Saved to My Apps on ' + tvName(tvId) + '.');
+    setTrack('trTv', 'active', 'Waiting for your TV to pick it up\u2026');
+    setTrack('trPlay', '', 'Press OK on the banner on your TV.');
+    updateSteps();
+    const tick = async () => {
+      if (track !== t) return;
+      if (!document.hidden) {
+        try {
+          if (!t.tvSeen) {
+            const list = await refreshTvs();
+            if (track !== t) return;
+            const tv = list.find(x => x.id === tvId);
+            if (tv && tv.lastSeenAt && tv.lastSeenAt >= t.deliveredAt) {
+              t.tvSeen = true; buzz(10);
+              setTrack('trTv', 'done', '\u201C' + t.title + '\u201D is showing on your TV now.');
+              setTrack('trPlay', 'active', 'Press OK on the banner on your TV to open it.');
+            } else if (tv && !tv.online) {
+              setTrack('trTv', 'active', 'Your TV looks off. Open App Studio on it and the app will be waiting.');
+            }
+          } else {
+            const r = await api('/v1/tv/' + encodeURIComponent(tvId) + '/apps');
+            if (track !== t) return;
+            const e = r.ok && (r.data.apps || []).find(x => x.appId === aid);
+            if (e && e.opened && e.openedAt && e.openedAt >= t.deliveredAt) {
+              setTrack('trPlay', 'done', 'Playing on your TV now. Enjoy!');
+              celebrate(); buzz([20, 60, 20]);
+              t.timer = null;
+              return;
+            }
+          }
+        } catch (e) {}
+      }
+      t.timer = Date.now() - t.started < 15 * 60 * 1000 ? setTimeout(tick, 1000) : null;
+    };
+    t.timer = setTimeout(tick, 400);
+  }
+  function stopTracking(){ if (track && track.timer) clearTimeout(track.timer); track = null; }
+  function newApp(){
+    stopTracking(); resetAfter(); currentPlan = null;
+    $('planCard').style.display = 'none';
+    setDesc('');
+    document.querySelectorAll('.idea.sel').forEach(x => x.classList.remove('sel'));
+    updateSteps();
+    goTo('describeCard');
+    setTimeout(() => $('desc').focus({ preventScroll:true }), 450);
+  }
+  function celebrate(){
+    if (reduced) return;
+    const box = document.createElement('div'); box.className = 'confetti'; box.setAttribute('aria-hidden', 'true');
+    const colors = ['#7c5cff', '#00c2ff', '#34d399', '#fbbf24', '#f472b6'];
+    for (let i = 0; i < 46; i++) {
+      const s = document.createElement('i');
+      s.style.left = (38 + Math.random() * 24) + '%';
+      s.style.background = colors[i % colors.length];
+      s.style.setProperty('--x', ((Math.random() * 2 - 1) * 45).toFixed(1) + 'vw');
+      s.style.setProperty('--y', (-(25 + Math.random() * 45)).toFixed(1) + 'vh');
+      s.style.setProperty('--r', ((Math.random() * 2 - 1) * 540).toFixed(0) + 'deg');
+      s.style.animationDelay = Math.round(Math.random() * 150) + 'ms';
+      box.appendChild(s);
+    }
+    document.body.appendChild(box);
+    setTimeout(() => box.remove(), 2000);
   }
 
-  async function approve(){
-    const code = document.getElementById('approveCode').value.trim().toUpperCase();
-    const r = await fetch('/v1/device/approve', { method:'POST', headers:{'Content-Type':'application/json'}, body: JSON.stringify({ code }) });
-    const data = await r.json();
-    const st = document.getElementById('approveStatus');
-    st.textContent = r.ok ? 'Paired. Your TV is ready.' : ('Error: ' + data.error);
-    st.className = r.ok ? 'paired' : '';
-    if (r.ok) refreshTvs();
-  }
+  renderIdeas();
+  if (SR) $('micBtn').hidden = false;
+  updateSteps();
+  refreshTvs().then(list => { if (list.length) collapsePair(); });
+  setInterval(() => { if (!document.hidden && !(track && track.timer)) refreshTvs(); }, 4000);
 </script>
 </body>
 </html>
